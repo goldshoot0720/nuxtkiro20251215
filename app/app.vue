@@ -144,6 +144,9 @@
                           type="date" 
                           id="sub-nextdate" 
                           v-model="newSubscription.nextdate"
+                          min="2020-01-01"
+                          max="2030-12-31"
+                          pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
                           required
                         >
                       </div>
@@ -377,6 +380,15 @@ const loadSubscriptionData = async () => {
 const addSubscription = async () => {
   if (!supabase.value) return
   
+  // 驗證日期格式
+  if (newSubscription.value.nextdate) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(newSubscription.value.nextdate)) {
+      alert('請輸入正確的日期格式 (YYYY-MM-DD)')
+      return
+    }
+  }
+  
   try {
     subscriptionLoading.value = true
     
@@ -425,6 +437,15 @@ const editSubscription = (subscription) => {
 
 const updateSubscription = async () => {
   if (!editingSubscription.value || !supabase.value) return
+  
+  // 驗證日期格式
+  if (newSubscription.value.nextdate) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(newSubscription.value.nextdate)) {
+      alert('請輸入正確的日期格式 (YYYY-MM-DD)')
+      return
+    }
+  }
   
   try {
     subscriptionLoading.value = true
