@@ -395,26 +395,35 @@
                       </div>
                       
                       <div class="card-content">
-                        <div class="info-row" v-if="food.photo">
-                          <img :src="food.photo" :alt="food.name" class="food-photo" />
+                        <!-- 主要資訊區域：圖片與關鍵資訊水平對齊 -->
+                        <div class="main-info-row">
+                          <div class="photo-section" v-if="food.photo">
+                            <img :src="food.photo" :alt="food.name" class="food-photo" />
+                          </div>
+                          <div class="key-info-section">
+                            <div class="key-info-item" v-if="food.amount">
+                              <span class="label">數量：</span>
+                              <span>{{ food.amount }}</span>
+                            </div>
+                            <div class="key-info-item" v-if="food.todate">
+                              <span class="label">到期：</span>
+                              <span :class="getExpiryClass(food.todate)">
+                                {{ formatDate(food.todate) }}
+                              </span>
+                            </div>
+                          </div>
                         </div>
-                        <div class="info-row" v-if="food.amount">
-                          <span class="label">數量：</span>
-                          <span>{{ food.amount }}</span>
-                        </div>
-                        <div class="info-row" v-if="food.price">
-                          <span class="label">價格：</span>
-                          <span class="price">NT$ {{ food.price }}</span>
-                        </div>
-                        <div class="info-row" v-if="food.shop">
-                          <span class="label">購買商店：</span>
-                          <span>{{ food.shop }}</span>
-                        </div>
-                        <div class="info-row" v-if="food.todate">
-                          <span class="label">到期日期：</span>
-                          <span :class="getExpiryClass(food.todate)">
-                            {{ formatDate(food.todate) }}
-                          </span>
+                        
+                        <!-- 其他資訊 -->
+                        <div class="other-info">
+                          <div class="info-row" v-if="food.price">
+                            <span class="label">價格：</span>
+                            <span class="price">NT$ {{ food.price }}</span>
+                          </div>
+                          <div class="info-row" v-if="food.shop">
+                            <span class="label">購買商店：</span>
+                            <span>{{ food.shop }}</span>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -2111,11 +2120,59 @@ p {
     grid-template-columns: 1fr;
   }
 }
+/* 食品卡片主要資訊區域佈局 */
+.main-info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.photo-section {
+  flex-shrink: 0;
+}
+
 .food-photo {
-  width: 10%;
-  max-width: none;
-  height: auto;
+  width: 60px;
+  height: 60px;
   object-fit: cover;
   border-radius: 4px;
-  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.key-info-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.key-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.other-info {
+  border-top: 1px solid #e1e8ed;
+  padding-top: 1rem;
+}
+
+/* 響應式調整 - 食品卡片 */
+@media (max-width: 480px) {
+  .main-info-row {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .key-info-section {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .key-info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+  }
 }
