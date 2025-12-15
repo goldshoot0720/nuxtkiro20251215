@@ -1,5 +1,5 @@
-# 使用官方Node.js 20镜像作为基础镜像
-FROM node:20-alpine AS base
+# 使用官方Node.js 24 LTS镜像作为基础镜像
+FROM node:24-alpine AS base
 
 # 设置工作目录
 WORKDIR /app
@@ -23,7 +23,7 @@ COPY . .
 RUN npm run build
 
 # 生产阶段
-FROM node:20-alpine AS production
+FROM node:24-alpine AS production
 
 # 设置工作目录
 WORKDIR /app
