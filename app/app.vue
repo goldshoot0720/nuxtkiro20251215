@@ -169,7 +169,107 @@
 
             <div v-else-if="activeContent === 'about'" class="content-section">
               <h1>關於我們</h1>
-              <p>我們是一個專注於響應式網頁設計的團隊。</p>
+              
+              <!-- 關於我們內容 -->
+              <div class="about-content">
+                <div class="about-intro">
+                  <h2>鋒兄塗哥公關資訊</h2>
+                  <p>歡迎來到鋒兄塗哥的官方平台！我們致力於提供最優質的內容和服務。</p>
+                </div>
+
+                <div class="about-sections">
+                  <div class="about-section">
+                    <h3>🎬 關於鋒兄</h3>
+                    <p>鋒兄是一位充滿創意和熱情的內容創作者，以其獨特的視角和精彩的表演贏得了廣大觀眾的喜愛。從傳奇人生到進化Show，每一個作品都展現了他的專業態度和創新精神。</p>
+                  </div>
+
+                  <div class="about-section">
+                    <h3>🎨 關於塗哥</h3>
+                    <p>塗哥是團隊中的技術專家和創意總監，負責平台的技術開發和視覺設計。憑藉豐富的經驗和敏銳的洞察力，為用戶提供最佳的使用體驗。</p>
+                  </div>
+
+                  <div class="about-section">
+                    <h3>🚀 我們的使命</h3>
+                    <p>透過創新的技術和優質的內容，為用戶創造價值，建立一個充滿活力和創意的數位生態系統。我們相信每個人都有無限的潛能，而我們的目標就是幫助大家發揮這些潛能。</p>
+                  </div>
+
+                  <div class="about-section">
+                    <h3>📞 公關聯絡</h3>
+                    <div class="contact-info">
+                      <div class="contact-item">
+                        <span class="contact-label">媒體合作：</span>
+                        <span class="contact-value">media@fengge-tuge.com</span>
+                      </div>
+                      <div class="contact-item">
+                        <span class="contact-label">商業合作：</span>
+                        <span class="contact-value">business@fengge-tuge.com</span>
+                      </div>
+                      <div class="contact-item">
+                        <span class="contact-label">技術支援：</span>
+                        <span class="contact-value">support@fengge-tuge.com</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="about-section">
+                    <h3>🌟 平台特色</h3>
+                    <div class="features-grid">
+                      <div class="feature-item">
+                        <div class="feature-icon">📊</div>
+                        <h4>智能儀表板</h4>
+                        <p>一目了然的數據統計和提醒功能</p>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon">💳</div>
+                        <h4>訂閱管理</h4>
+                        <p>輕鬆管理所有訂閱服務和費用</p>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon">🍎</div>
+                        <h4>食品管理</h4>
+                        <p>智能追蹤食品保存期限</p>
+                      </div>
+                      <div class="feature-item">
+                        <div class="feature-icon">🎬</div>
+                        <h4>影片展示</h4>
+                        <p>高效的影片載入和快取系統</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 版權聲明 -->
+                <div class="copyright-section">
+                  <div class="copyright-content">
+                    <div class="copyright-main">
+                      <h3>版權聲明</h3>
+                      <p class="copyright-text">
+                        <span class="copyright-symbol">©</span> 
+                        <span class="copyright-years">2025～2125</span> 
+                        <span class="copyright-owner">鋒兄塗哥公關資訊</span>
+                      </p>
+                      <p class="copyright-description">
+                        版權所有，保留一切權利。本網站所有內容，包括但不限於文字、圖片、影片、音頻、軟體、程式碼等，均受到著作權法保護。
+                      </p>
+                    </div>
+                    
+                    <div class="copyright-details">
+                      <div class="copyright-item">
+                        <strong>使用條款：</strong>
+                        <span>未經書面許可，不得複製、分發或修改本網站內容</span>
+                      </div>
+                      <div class="copyright-item">
+                        <strong>技術支援：</strong>
+                        <span>基於 Nuxt 4 + Supabase + Netlify 技術架構</span>
+                      </div>
+                      <div class="copyright-item">
+                        <strong>最後更新：</strong>
+                        <span>{{ new Date().getFullYear() }}年{{ new Date().getMonth() + 1 }}月</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div v-else-if="activeContent === 'services'" class="content-section">
@@ -351,6 +451,11 @@
 
             <div v-else-if="activeContent === 'subscription'" class="content-section">
               <h1>個人訂閱管理</h1>
+              <SubscriptionManager 
+                :supabase="supabase" 
+                @subscriptions-updated="onSubscriptionsUpdated"
+                ref="subscriptionManager"
+              />
               
               <!-- 訂閱管理 - 無需認證 -->
               <div class="subscription-management">
@@ -522,6 +627,11 @@
 
             <div v-else-if="activeContent === 'food'" class="content-section">
               <h1>食品管理</h1>
+              <FoodManager 
+                :supabase="supabase" 
+                @foods-updated="onFoodsUpdated"
+                ref="foodManager"
+              />
               
               <!-- 食品管理系統 -->
               <div class="food-management">
@@ -737,11 +847,21 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
+import SubscriptionManager from '~/components/SubscriptionManager.vue'
+import FoodManager from '~/components/FoodManager.vue'
 
 // 響應式佈局相關
 const isSidebarOpen = ref(false)
 const activeContent = ref('home')
 const showScrollButtons = ref(false)
+
+// 組件引用
+const subscriptionManager = ref(null)
+const foodManager = ref(null)
+
+// 組件資料
+const subscriptions = ref([])
+const foods = ref([])
 
 // Supabase 客戶端
 const supabase = ref(null)
@@ -871,6 +991,71 @@ const sortedSubscriptions = computed(() => {
     const dateB = new Date(b.nextdate)
     return dateA - dateB
   })
+})
+
+// 儀表板相關計算屬性
+// 3天內到期的訂閱
+const subscriptionsExpiring3Days = computed(() => {
+  const today = new Date()
+  const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
+  
+  return subscriptions.value.filter(sub => {
+    if (!sub.nextdate) return false
+    const nextDate = new Date(sub.nextdate)
+    return nextDate <= threeDaysLater && nextDate >= today
+  })
+})
+
+// 7天內到期的訂閱
+const subscriptionsExpiring7Days = computed(() => {
+  const today = new Date()
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
+  
+  return subscriptions.value.filter(sub => {
+    if (!sub.nextdate) return false
+    const nextDate = new Date(sub.nextdate)
+    return nextDate <= sevenDaysLater && nextDate > threeDaysLater
+  })
+})
+
+// 7天內過期的食品
+const foodsExpiring7Days = computed(() => {
+  const today = new Date()
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  return foods.value.filter(food => {
+    if (!food.todate) return false
+    const toDate = new Date(food.todate)
+    return toDate <= sevenDaysLater && toDate >= today
+  })
+})
+
+// 30天內過期的食品（排除7天內的）
+const foodsExpiring30Days = computed(() => {
+  const today = new Date()
+  const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  return foods.value.filter(food => {
+    if (!food.todate) return false
+    const toDate = new Date(food.todate)
+    return toDate <= thirtyDaysLater && toDate > sevenDaysLater
+  })
+})
+
+// 組件事件處理
+const onSubscriptionsUpdated = (updatedSubscriptions) => {
+  subscriptions.value = updatedSubscriptions
+}
+
+const onFoodsUpdated = (updatedFoods) => {
+  foods.value = updatedFoods
+}
+
+// 計算屬性 - 儀表板需要的統計資料
+const totalMonthlyCost = computed(() => {
+  return subscriptions.value.reduce((total, sub) => total + (sub.price || 0), 0)
 })
 
 // 儀表板相關計算屬性
@@ -3067,5 +3252,233 @@ p {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+}
+/* 關於我們頁面樣式 */
+.about-content {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.about-intro {
+  text-align: center;
+  margin-bottom: 3rem;
+  padding: 2rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 12px;
+}
+
+.about-intro h2 {
+  margin: 0 0 1rem 0;
+  font-size: 2rem;
+}
+
+.about-intro p {
+  margin: 0;
+  font-size: 1.1rem;
+  opacity: 0.9;
+}
+
+.about-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  margin-bottom: 3rem;
+}
+
+.about-section {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.about-section h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1.3rem;
+}
+
+.about-section p {
+  margin: 0;
+  line-height: 1.6;
+  color: #555;
+}
+
+.contact-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.contact-label {
+  font-weight: bold;
+  color: #2c3e50;
+  min-width: 100px;
+}
+
+.contact-value {
+  color: #3498db;
+  font-family: monospace;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
+}
+
+.feature-item {
+  text-align: center;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: transform 0.2s;
+}
+
+.feature-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.feature-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.feature-item h4 {
+  margin: 0 0 0.5rem 0;
+  color: #2c3e50;
+}
+
+.feature-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: #7f8c8d;
+}
+
+.copyright-section {
+  background: #2c3e50;
+  color: white;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-top: 2rem;
+}
+
+.copyright-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.copyright-main {
+  text-align: center;
+}
+
+.copyright-main h3 {
+  margin: 0 0 1rem 0;
+  color: white;
+}
+
+.copyright-text {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0 0 1rem 0;
+}
+
+.copyright-symbol {
+  font-size: 1.5rem;
+  color: #3498db;
+}
+
+.copyright-years {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.copyright-owner {
+  color: #f39c12;
+}
+
+.copyright-description {
+  margin: 0;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.copyright-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.copyright-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+  background: rgba(255,255,255,0.1);
+  border-radius: 6px;
+}
+
+.copyright-item strong {
+  color: #3498db;
+}
+
+.copyright-item span {
+  opacity: 0.9;
+  font-size: 0.9rem;
+}
+
+/* 響應式調整 - 關於我們 */
+@media (max-width: 768px) {
+  .about-intro {
+    padding: 1.5rem;
+  }
+  
+  .about-intro h2 {
+    font-size: 1.5rem;
+  }
+  
+  .about-section {
+    padding: 1.5rem;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .contact-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .contact-label {
+    min-width: auto;
+  }
+  
+  .copyright-content {
+    gap: 1.5rem;
+  }
+  
+  .copyright-section {
+    padding: 1.5rem;
+  }
+  
+  .copyright-text {
+    font-size: 1rem;
   }
 }
