@@ -193,7 +193,7 @@
                   
                   <div v-else class="subscriptions-grid">
                     <div 
-                      v-for="subscription in subscriptions" 
+                      v-for="subscription in sortedSubscriptions" 
                       :key="subscription.id"
                       class="subscription-card"
                     >
@@ -323,6 +323,21 @@ const totalMonthlyCost = computed(() => {
   return subscriptions.value.reduce((total, sub) => total + (sub.price || 0), 0)
 })
 
+// 按日期排序的訂閱列表（日期近的在上面）
+const sortedSubscriptions = computed(() => {
+  return [...subscriptions.value].sort((a, b) => {
+    // 處理沒有日期的情況，放到最後
+    if (!a.nextdate && !b.nextdate) return 0
+    if (!a.nextdate) return 1
+    if (!b.nextdate) return -1
+    
+    // 比較日期，近的在前
+    const dateA = new Date(a.nextdate)
+    const dateB = new Date(b.nextdate)
+    return dateA - dateB
+  })
+})
+
 // 響應式佈局方法
 const toggleSidebar = () => {
   isSidebarOpen.value = !isSidebarOpen.value
@@ -350,7 +365,6 @@ const loadSubscriptionData = async () => {
     const { data, error } = await supabase.value
       .from('subscription')
       .select('*')
-      .order('created_at', { ascending: false })
     
     if (error) throw error
     
