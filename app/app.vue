@@ -2113,9 +2113,9 @@ p {
 }
 .food-photo {
   width: 100%;
-  max-width: 200px;
-  height: 120px;
+  max-width: 20px;
+  height: 12px;
   object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 1rem;
+  border-radius: 2px;
+  margin-bottom: 0.2rem;
 }
