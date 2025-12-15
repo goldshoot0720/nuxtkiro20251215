@@ -398,7 +398,7 @@
                         <!-- 主要資訊區域：圖片與關鍵資訊水平對齊 -->
                         <div class="main-info-row">
                           <div class="photo-section" v-if="food.photo">
-                            <img :src="food.photo" :alt="food.name" class="food-photo" />
+                            <img :src="food.photo" :alt="food.name" class="food-photo" width="10%" />
                           </div>
                           <div class="key-info-section">
                             <div class="key-info-item" v-if="food.amount">
@@ -2133,8 +2133,7 @@ p {
 }
 
 .food-photo {
-  width: 60px;
-  height: 60px;
+  height: auto;
   object-fit: cover;
   border-radius: 4px;
   display: block;
