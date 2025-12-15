@@ -182,7 +182,7 @@
                     <h3>我的訂閱服務</h3>
                     <div class="summary">
                       <span class="total-count">共 {{ subscriptions.length }} 個服務</span>
-                      <span class="total-cost">本月總費用：NT$ {{ totalMonthlyCost }}</span>
+                      <span class="total-cost">總費用：NT$ {{ totalMonthlyCost }}</span>
                     </div>
                   </div>
                   
@@ -501,7 +501,11 @@ const resetForm = () => {
 // 輔助方法
 const formatDate = (dateString) => {
   if (!dateString) return ''
-  return new Date(dateString).toLocaleDateString('zh-TW')
+  return new Date(dateString).toLocaleDateString('zh-TW', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
 }
 
 const getDateClass = (dateString) => {
