@@ -2,10 +2,22 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-07-15',
   devtools: { enabled: true },
+  
+  // 静态站点生成配置
+  nitro: {
+    prerender: {
+      routes: ['/']
+    }
+  },
+  
+  // SSG模式
+  ssr: true,
+  
   components: {
     global: true,
     dirs: ['~/components']
   },
+  
   runtimeConfig: {
     // Private keys (only available on server-side)
     supabaseUrl: process.env.SUPABASE_URL,

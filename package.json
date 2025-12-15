@@ -8,6 +8,8 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
+    "build:static": "nuxt generate",
+    "preview:static": "npx serve .output/public",
     "upload-videos": "node scripts/upload-videos.js",
     "upload-videos-manual": "node scripts/upload-videos-manual.js",
     "check-blobs": "node scripts/check-blobs.js",
