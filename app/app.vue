@@ -191,6 +191,164 @@
               <p>展示我們的設計作品</p>
             </div>
 
+            <div v-else-if="activeContent === 'videos'" class="content-section">
+              <h1>影片介紹</h1>
+              
+              <!-- 影片管理系統 -->
+              <div class="video-management">
+                <div class="video-info">
+                  <h3>影片展示系統</h3>
+                  <p>使用 Netlify Blobs 優化影片載入，減少流量消耗</p>
+                </div>
+
+                <!-- 影片列表 -->
+                <div class="video-gallery">
+                  <div class="video-grid">
+                    <!-- 鋒兄的傳奇人生 -->
+                    <div class="video-card">
+                      <div class="video-header">
+                        <h4>鋒兄的傳奇人生</h4>
+                        <div class="video-meta">
+                          <span class="video-date">2024</span>
+                          <span class="video-status" :class="getVideoStatus('legend')">
+                            {{ videoStatuses.legend }}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div class="video-container">
+                        <video 
+                          v-if="videoUrls.legend"
+                          :src="videoUrls.legend"
+                          controls
+                          preload="metadata"
+                          class="video-player"
+                          @loadstart="onVideoLoadStart('legend')"
+                          @canplay="onVideoCanPlay('legend')"
+                          @error="onVideoError('legend')"
+                        >
+                          您的瀏覽器不支援影片播放。
+                        </video>
+                        <div v-else class="video-placeholder">
+                          <div class="placeholder-content">
+                            <span class="placeholder-icon">🎬</span>
+                            <p>影片載入中...</p>
+                            <button @click="loadVideo('legend')" class="load-btn">
+                              載入影片
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="video-info">
+                        <p class="video-description">
+                          記錄鋒兄人生中的重要時刻與成就
+                        </p>
+                        <div class="video-actions">
+                          <button 
+                            @click="toggleVideo('legend')" 
+                            class="action-btn"
+                            :disabled="videoLoading.legend"
+                          >
+                            {{ videoUrls.legend ? '重新載入' : '載入影片' }}
+                          </button>
+                          <button 
+                            @click="clearVideoCache('legend')" 
+                            class="action-btn secondary"
+                            v-if="videoUrls.legend"
+                          >
+                            清除快取
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 鋒兄進化Show -->
+                    <div class="video-card">
+                      <div class="video-header">
+                        <h4>鋒兄進化Show🔥</h4>
+                        <div class="video-meta">
+                          <span class="video-date">2024</span>
+                          <span class="video-status" :class="getVideoStatus('evolution')">
+                            {{ videoStatuses.evolution }}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div class="video-container">
+                        <video 
+                          v-if="videoUrls.evolution"
+                          :src="videoUrls.evolution"
+                          controls
+                          preload="metadata"
+                          class="video-player"
+                          @loadstart="onVideoLoadStart('evolution')"
+                          @canplay="onVideoCanPlay('evolution')"
+                          @error="onVideoError('evolution')"
+                        >
+                          您的瀏覽器不支援影片播放。
+                        </video>
+                        <div v-else class="video-placeholder">
+                          <div class="placeholder-content">
+                            <span class="placeholder-icon">🎬</span>
+                            <p>影片載入中...</p>
+                            <button @click="loadVideo('evolution')" class="load-btn">
+                              載入影片
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="video-info">
+                        <p class="video-description">
+                          展示鋒兄的成長歷程與精彩演出
+                        </p>
+                        <div class="video-actions">
+                          <button 
+                            @click="toggleVideo('evolution')" 
+                            class="action-btn"
+                            :disabled="videoLoading.evolution"
+                          >
+                            {{ videoUrls.evolution ? '重新載入' : '載入影片' }}
+                          </button>
+                          <button 
+                            @click="clearVideoCache('evolution')" 
+                            class="action-btn secondary"
+                            v-if="videoUrls.evolution"
+                          >
+                            清除快取
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 快取資訊 -->
+                <div class="cache-info">
+                  <h3>📊 快取狀態</h3>
+                  <div class="cache-stats">
+                    <div class="cache-item">
+                      <span class="cache-label">本地快取大小：</span>
+                      <span class="cache-value">{{ formatCacheSize(totalCacheSize) }}</span>
+                    </div>
+                    <div class="cache-item">
+                      <span class="cache-label">已快取影片：</span>
+                      <span class="cache-value">{{ cachedVideosCount }} / 2</span>
+                    </div>
+                    <div class="cache-actions">
+                      <button @click="clearAllCache" class="action-btn danger">
+                        清除所有快取
+                      </button>
+                      <button @click="preloadAllVideos" class="action-btn primary">
+                        預載所有影片
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div v-else-if="activeContent === 'subscription'" class="content-section">
               <h1>個人訂閱管理</h1>
               
@@ -648,6 +806,29 @@ const newFood = ref({
   todate: '',
   photo: '',
   photohash: ''
+})
+
+// 影片管理相關
+const videoLoading = ref({
+  legend: false,
+  evolution: false
+})
+
+const videoUrls = ref({
+  legend: null,
+  evolution: null
+})
+
+const videoStatuses = ref({
+  legend: '未載入',
+  evolution: '未載入'
+})
+
+const totalCacheSize = ref(0)
+
+// 影片快取大小計算
+const cachedVideosCount = computed(() => {
+  return Object.values(videoUrls.value).filter(url => url !== null).length
 })
 
 // 即將到期的食品（7天內）
@@ -1140,6 +1321,116 @@ const getExpiryClass = (todate) => {
   if (diffDays <= 3) return 'date-critical'
   if (diffDays <= 7) return 'date-soon'
   return 'date-normal'
+}
+
+// 影片管理方法
+const loadVideo = async (videoKey) => {
+  if (videoLoading.value[videoKey]) return
+  
+  try {
+    videoLoading.value[videoKey] = true
+    videoStatuses.value[videoKey] = '載入中...'
+    
+    // 模擬 Netlify Blobs API 調用
+    const videoFiles = {
+      legend: '19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4',
+      evolution: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4'
+    }
+    
+    // 模擬從 Netlify Blobs 獲取影片 URL
+    const blobUrl = `/.netlify/blobs/${videoFiles[videoKey]}`
+    
+    // 檢查影片是否可用
+    const response = await fetch(blobUrl, { method: 'HEAD' })
+    
+    if (response.ok) {
+      videoUrls.value[videoKey] = blobUrl
+      videoStatuses.value[videoKey] = '已載入'
+      
+      // 更新快取大小（模擬）
+      const contentLength = response.headers.get('content-length')
+      if (contentLength) {
+        totalCacheSize.value += parseInt(contentLength)
+      }
+    } else {
+      throw new Error('影片不可用')
+    }
+  } catch (error) {
+    console.error(`載入影片 ${videoKey} 失敗:`, error)
+    videoStatuses.value[videoKey] = '載入失敗'
+    alert(`載入影片失敗: ${error.message}`)
+  } finally {
+    videoLoading.value[videoKey] = false
+  }
+}
+
+const toggleVideo = async (videoKey) => {
+  if (videoUrls.value[videoKey]) {
+    clearVideoCache(videoKey)
+  } else {
+    await loadVideo(videoKey)
+  }
+}
+
+const clearVideoCache = (videoKey) => {
+  if (videoUrls.value[videoKey]) {
+    // 撤銷 blob URL 以釋放記憶體
+    if (videoUrls.value[videoKey].startsWith('blob:')) {
+      URL.revokeObjectURL(videoUrls.value[videoKey])
+    }
+    
+    videoUrls.value[videoKey] = null
+    videoStatuses.value[videoKey] = '未載入'
+  }
+}
+
+const clearAllCache = () => {
+  if (confirm('確定要清除所有影片快取嗎？')) {
+    Object.keys(videoUrls.value).forEach(key => {
+      clearVideoCache(key)
+    })
+    totalCacheSize.value = 0
+    alert('所有影片快取已清除')
+  }
+}
+
+const preloadAllVideos = async () => {
+  if (confirm('確定要預載所有影片嗎？這可能會消耗較多流量。')) {
+    const videoKeys = Object.keys(videoUrls.value)
+    for (const key of videoKeys) {
+      if (!videoUrls.value[key]) {
+        await loadVideo(key)
+      }
+    }
+  }
+}
+
+const onVideoLoadStart = (videoKey) => {
+  videoStatuses.value[videoKey] = '載入中...'
+}
+
+const onVideoCanPlay = (videoKey) => {
+  videoStatuses.value[videoKey] = '可播放'
+}
+
+const onVideoError = (videoKey) => {
+  videoStatuses.value[videoKey] = '播放錯誤'
+}
+
+const getVideoStatus = (videoKey) => {
+  const status = videoStatuses.value[videoKey]
+  if (status === '已載入' || status === '可播放') return 'status-success'
+  if (status === '載入中...') return 'status-loading'
+  if (status === '載入失敗' || status === '播放錯誤') return 'status-error'
+  return 'status-default'
+}
+
+const formatCacheSize = (bytes) => {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
 // 輔助方法
@@ -2534,5 +2825,247 @@ p {
   
   .action-btn {
     width: 100%;
+  }
+}
+/* 影片管理樣式 */
+.video-management {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.video-info {
+  background: #f8f9fa;
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.video-gallery {
+  margin-bottom: 2rem;
+}
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+}
+
+.video-card {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.video-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.video-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #e1e8ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.video-header h4 {
+  margin: 0;
+  color: #2c3e50;
+}
+
+.video-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.video-date {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.video-status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.status-success {
+  background: #d4edda;
+  color: #155724;
+}
+
+.status-loading {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.status-error {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-default {
+  background: #e2e3e5;
+  color: #383d41;
+}
+
+.video-container {
+  position: relative;
+  width: 100%;
+  height: 250px;
+  background: #000;
+}
+
+.video-player {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.video-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.placeholder-content {
+  text-align: center;
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.load-btn {
+  background: rgba(255,255,255,0.2);
+  border: 2px solid white;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  margin-top: 1rem;
+}
+
+.load-btn:hover {
+  background: rgba(255,255,255,0.3);
+  transform: translateY(-1px);
+}
+
+.video-info {
+  padding: 1.5rem;
+}
+
+.video-description {
+  color: #555;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.video-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cache-info {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.cache-info h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+}
+
+.cache-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cache-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.cache-label {
+  font-weight: bold;
+  color: #2c3e50;
+}
+
+.cache-value {
+  color: #3498db;
+  font-weight: bold;
+}
+
+.cache-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.action-btn.danger {
+  background: #e74c3c;
+  color: white;
+}
+
+.action-btn.danger:hover {
+  background: #c0392b;
+}
+
+/* 響應式調整 - 影片管理 */
+@media (max-width: 768px) {
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .video-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .video-meta {
+    width: 100%;
+    justify-content: space-between;
+  }
+  
+  .video-container {
+    height: 200px;
+  }
+  
+  .video-actions {
+    flex-direction: column;
+  }
+  
+  .cache-actions {
+    flex-direction: column;
+  }
+  
+  .cache-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 }

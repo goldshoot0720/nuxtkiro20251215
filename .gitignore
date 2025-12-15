@@ -22,3 +22,11 @@ logs
 .env
 .env.*
 !.env.example
+
+# Video files (managed by Netlify Blobs)
+*.mp4
+*.avi
+*.mov
+*.wmv
+*.flv
+videos/
