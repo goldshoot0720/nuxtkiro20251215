@@ -20,6 +20,7 @@
           <li><a href="#" @click="setActiveContent('services')">服務項目</a></li>
           <li><a href="#" @click="setActiveContent('portfolio')">作品集</a></li>
           <li><a href="#" @click="setActiveContent('subscription')">訂閱管理</a></li>
+          <li><a href="#" @click="setActiveContent('food')">食品管理</a></li>
           <li><a href="#" @click="setActiveContent('contact')">聯絡我們</a></li>
         </ul>
       </nav>
@@ -252,6 +253,176 @@
               </div>
             </div>
 
+            <div v-else-if="activeContent === 'food'" class="content-section">
+              <h1>食品管理</h1>
+              
+              <!-- 食品管理系統 -->
+              <div class="food-management">
+                <div class="user-info">
+                  <h3>食品庫存管理系統</h3>
+                  <p>管理你的食品庫存、保存期限和購買記錄</p>
+                </div>
+
+                <!-- 新增食品 -->
+                <div class="add-food">
+                  <h3>新增食品</h3>
+                  <div class="food-form">
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="food-name">食品名稱</label>
+                        <input 
+                          type="text" 
+                          id="food-name" 
+                          v-model="newFood.name" 
+                          placeholder="例如：牛奶、麵包"
+                          required
+                        >
+                      </div>
+                      <div class="form-group">
+                        <label for="food-amount">數量</label>
+                        <input 
+                          type="number" 
+                          id="food-amount" 
+                          v-model="newFood.amount" 
+                          placeholder="1"
+                          min="1"
+                        >
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="food-price">價格 (NT$)</label>
+                        <input 
+                          type="number" 
+                          id="food-price" 
+                          v-model="newFood.price" 
+                          placeholder="100"
+                          min="0"
+                        >
+                      </div>
+                      <div class="form-group">
+                        <label for="food-shop">購買商店</label>
+                        <input 
+                          type="text" 
+                          id="food-shop" 
+                          v-model="newFood.shop" 
+                          placeholder="例如：全聯、家樂福"
+                        >
+                      </div>
+                    </div>
+                    <div class="form-row">
+                      <div class="form-group">
+                        <label for="food-todate">到期日期</label>
+                        <input 
+                          type="date" 
+                          id="food-todate" 
+                          v-model="newFood.todate"
+                          min="2025-01-01"
+                          max="2125-12-31"
+                        >
+                      </div>
+                      <div class="form-group">
+                        <label for="food-photo">照片網址</label>
+                        <input 
+                          type="url" 
+                          id="food-photo" 
+                          v-model="newFood.photo" 
+                          placeholder="https://example.com/photo.jpg"
+                        >
+                      </div>
+                    </div>
+                    <div class="form-actions">
+                      <button 
+                        @click="editingFood ? updateFood() : addFood()"
+                        class="auth-btn primary"
+                        :disabled="foodLoading || !newFood.name"
+                      >
+                        {{ editingFood ? '更新食品' : '新增食品' }}
+                      </button>
+                      <button 
+                        @click="resetFoodForm"
+                        class="auth-btn secondary"
+                        type="button"
+                      >
+                        {{ editingFood ? '取消編輯' : '清除' }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 食品列表 -->
+                <div class="food-list">
+                  <div class="list-header">
+                    <h3>食品庫存</h3>
+                    <div class="summary">
+                      <span class="total-count">共 {{ foods.length }} 項食品</span>
+                      <span class="expiry-warning" v-if="expiringFoods.length > 0">
+                        {{ expiringFoods.length }} 項即將過期
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div v-if="foods.length === 0" class="no-foods">
+                    <p>還沒有任何食品記錄</p>
+                    <p>點擊上方表單新增你的第一項食品！</p>
+                  </div>
+                  
+                  <div v-else class="foods-grid">
+                    <div 
+                      v-for="food in sortedFoods" 
+                      :key="food.id"
+                      class="food-card"
+                      :class="getFoodStatusClass(food.todate)"
+                    >
+                      <div class="card-header">
+                        <h4>{{ food.name }}</h4>
+                        <div class="card-actions">
+                          <button 
+                            @click="editFood(food)"
+                            class="action-btn edit"
+                            title="編輯"
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            @click="deleteFood(food.id)"
+                            class="action-btn delete"
+                            title="刪除"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                      
+                      <div class="card-content">
+                        <div class="info-row" v-if="food.photo">
+                          <img :src="food.photo" :alt="food.name" class="food-photo" />
+                        </div>
+                        <div class="info-row" v-if="food.amount">
+                          <span class="label">數量：</span>
+                          <span>{{ food.amount }}</span>
+                        </div>
+                        <div class="info-row" v-if="food.price">
+                          <span class="label">價格：</span>
+                          <span class="price">NT$ {{ food.price }}</span>
+                        </div>
+                        <div class="info-row" v-if="food.shop">
+                          <span class="label">購買商店：</span>
+                          <span>{{ food.shop }}</span>
+                        </div>
+                        <div class="info-row" v-if="food.todate">
+                          <span class="label">到期日期：</span>
+                          <span :class="getExpiryClass(food.todate)">
+                            {{ formatDate(food.todate) }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div v-else-if="activeContent === 'contact'" class="content-section">
               <h1>聯絡我們</h1>
               <p>歡迎與我們聯繫</p>
@@ -343,6 +514,49 @@ const newSubscription = ref({
 // 計算總月費
 const totalMonthlyCost = computed(() => {
   return subscriptions.value.reduce((total, sub) => total + (sub.price || 0), 0)
+})
+
+// 食品管理相關
+const foodLoading = ref(false)
+const foods = ref([])
+const editingFood = ref(null)
+
+// 新增食品表單
+const newFood = ref({
+  name: '',
+  amount: null,
+  price: null,
+  shop: '',
+  todate: '',
+  photo: '',
+  photohash: ''
+})
+
+// 即將到期的食品（7天內）
+const expiringFoods = computed(() => {
+  const today = new Date()
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  return foods.value.filter(food => {
+    if (!food.todate) return false
+    const toDate = new Date(food.todate)
+    return toDate <= sevenDaysLater && toDate >= today
+  })
+})
+
+// 按到期日排序的食品列表（即將到期的在上面）
+const sortedFoods = computed(() => {
+  return [...foods.value].sort((a, b) => {
+    // 處理沒有到期日的情況，放到最後
+    if (!a.todate && !b.todate) return 0
+    if (!a.todate) return 1
+    if (!b.todate) return -1
+    
+    // 比較到期日，近的在前
+    const dateA = new Date(a.todate)
+    const dateB = new Date(b.todate)
+    return dateA - dateB
+  })
 })
 
 // 按日期排序的訂閱列表（日期近的在上面）
@@ -567,6 +781,198 @@ const resetForm = () => {
   editingSubscription.value = null
 }
 
+// 食品管理方法 - 使用 Supabase
+const loadFoodData = async () => {
+  if (!supabase.value) return
+  
+  try {
+    const { data, error } = await supabase.value
+      .from('food')
+      .select('*')
+    
+    if (error) throw error
+    
+    foods.value = data || []
+  } catch (error) {
+    console.error('載入食品資料錯誤:', error.message)
+  }
+}
+
+const addFood = async () => {
+  if (!supabase.value) return
+  
+  // 驗證日期格式
+  if (newFood.value.todate) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(newFood.value.todate)) {
+      alert('請輸入正確的日期格式 (YYYY-MM-DD)')
+      return
+    }
+  }
+  
+  try {
+    foodLoading.value = true
+    
+    const { data, error } = await supabase.value
+      .from('food')
+      .insert({
+        name: newFood.value.name,
+        amount: newFood.value.amount || null,
+        price: newFood.value.price || null,
+        shop: newFood.value.shop || null,
+        todate: newFood.value.todate || null,
+        photo: newFood.value.photo || null,
+        photohash: newFood.value.photohash || null
+      })
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    foods.value.unshift(data)
+    resetFoodForm()
+    alert('食品新增成功！')
+  } catch (error) {
+    console.error('新增食品錯誤:', error.message)
+    alert('新增食品失敗: ' + error.message)
+  } finally {
+    foodLoading.value = false
+  }
+}
+
+const editFood = (food) => {
+  editingFood.value = food
+  newFood.value = {
+    name: food.name,
+    amount: food.amount,
+    price: food.price,
+    shop: food.shop || '',
+    todate: food.todate || '',
+    photo: food.photo || '',
+    photohash: food.photohash || ''
+  }
+  
+  // 滾動到表單
+  if (process.client) {
+    document.querySelector('.add-food')?.scrollIntoView({ behavior: 'smooth' })
+  }
+}
+
+const updateFood = async () => {
+  if (!editingFood.value || !supabase.value) return
+  
+  // 驗證日期格式
+  if (newFood.value.todate) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+    if (!dateRegex.test(newFood.value.todate)) {
+      alert('請輸入正確的日期格式 (YYYY-MM-DD)')
+      return
+    }
+  }
+  
+  try {
+    foodLoading.value = true
+    
+    const { data, error } = await supabase.value
+      .from('food')
+      .update({
+        name: newFood.value.name,
+        amount: newFood.value.amount || null,
+        price: newFood.value.price || null,
+        shop: newFood.value.shop || null,
+        todate: newFood.value.todate || null,
+        photo: newFood.value.photo || null,
+        photohash: newFood.value.photohash || null
+      })
+      .eq('id', editingFood.value.id)
+      .select()
+      .single()
+    
+    if (error) throw error
+    
+    // 更新本地資料
+    const index = foods.value.findIndex(f => f.id === editingFood.value.id)
+    if (index !== -1) {
+      foods.value[index] = data
+    }
+    
+    resetFoodForm()
+    alert('食品更新成功！')
+  } catch (error) {
+    console.error('更新食品錯誤:', error.message)
+    alert('更新食品失敗: ' + error.message)
+  } finally {
+    foodLoading.value = false
+  }
+}
+
+const deleteFood = async (id) => {
+  if (!supabase.value) return
+  
+  if (!confirm('確定要刪除這項食品嗎？')) return
+  
+  try {
+    foodLoading.value = true
+    
+    const { error } = await supabase.value
+      .from('food')
+      .delete()
+      .eq('id', id)
+    
+    if (error) throw error
+    
+    foods.value = foods.value.filter(f => f.id !== id)
+    alert('食品已刪除')
+  } catch (error) {
+    console.error('刪除食品錯誤:', error.message)
+    alert('刪除食品失敗: ' + error.message)
+  } finally {
+    foodLoading.value = false
+  }
+}
+
+const resetFoodForm = () => {
+  newFood.value = {
+    name: '',
+    amount: null,
+    price: null,
+    shop: '',
+    todate: '',
+    photo: '',
+    photohash: ''
+  }
+  editingFood.value = null
+}
+
+// 食品輔助方法
+const getFoodStatusClass = (todate) => {
+  if (!todate) return ''
+  
+  const today = new Date()
+  const expiry = new Date(todate)
+  const diffTime = expiry - today
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays < 0) return 'food-expired'
+  if (diffDays <= 3) return 'food-critical'
+  if (diffDays <= 7) return 'food-warning'
+  return 'food-normal'
+}
+
+const getExpiryClass = (todate) => {
+  if (!todate) return ''
+  
+  const today = new Date()
+  const expiry = new Date(todate)
+  const diffTime = expiry - today
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays < 0) return 'date-overdue'
+  if (diffDays <= 3) return 'date-critical'
+  if (diffDays <= 7) return 'date-soon'
+  return 'date-normal'
+}
+
 // 輔助方法
 const formatDate = (dateString) => {
   if (!dateString) return ''
@@ -613,6 +1019,9 @@ onMounted(async () => {
       // 載入資料
       loadSubscriptionData()
     }
+    
+    // 載入食品資料
+    loadFoodData()
   }
 })
 
@@ -1608,3 +2017,105 @@ p {
   }
 }
 </style>
+
+/* 食品管理樣式 */
+.food-management {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.add-food {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.food-form {
+  margin-top: 1rem;
+}
+
+.food-list {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 2rem;
+}
+
+.no-foods {
+  text-align: center;
+  color: #7f8c8d;
+  padding: 3rem;
+}
+
+.foods-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+}
+
+.food-card {
+  background: #f8f9fa;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 1.5rem;
+  transition: box-shadow 0.2s;
+}
+
+.food-card:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.food-card.food-expired {
+  border-color: #e74c3c;
+  background: #fdf2f2;
+}
+
+.food-card.food-critical {
+  border-color: #f39c12;
+  background: #fef9e7;
+}
+
+.food-card.food-warning {
+  border-color: #f1c40f;
+  background: #fffbf0;
+}
+
+.food-card.food-normal {
+  border-color: #27ae60;
+  background: #f8fff9;
+}
+
+.category {
+  background: #3498db;
+  color: white;
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+}
+
+.expiry-warning {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+.date-critical {
+  color: #e74c3c;
+  font-weight: bold;
+}
+
+/* 響應式調整 - 食品管理 */
+@media (max-width: 768px) {
+  .foods-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.food-photo {
+  width: 100%;
+  max-width: 200px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
