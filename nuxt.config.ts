@@ -6,7 +6,7 @@ export default defineNuxtConfig({
   // 静态站点生成配置
   nitro: {
     prerender: {
-      routes: ['/']
+      routes: ['/', '/about']
     }
   },
   
@@ -19,13 +19,10 @@ export default defineNuxtConfig({
   },
   
   runtimeConfig: {
-    // Private keys (only available on server-side)
-    supabaseUrl: process.env.SUPABASE_URL,
-    supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
     // Public keys (exposed to client-side)
     public: {
-      supabaseUrl: process.env.SUPABASE_URL,
-      supabaseAnonKey: process.env.SUPABASE_ANON_KEY
+      supabaseUrl: process.env.SUPABASE_URL || '',
+      supabaseAnonKey: process.env.SUPABASE_ANON_KEY || ''
     }
   }
 })

@@ -1,9 +1,10 @@
 [build]
-  command = "npm run generate"
+  command = "npm install && npm run generate"
   publish = ".output/public"
 
 [build.environment]
   NODE_VERSION = "20"
+  NPM_FLAGS = "--production=false"
 
 [functions]
   directory = "netlify/functions/"
