@@ -8,7 +8,7 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "build:static": "nuxt generate",
+    "build:static": "nuxt generate && cp -r .output/public/* dist/ 2>/dev/null || mkdir -p dist && cp -r .output/public/* dist/",
     "preview:static": "npx serve .output/public",
     "upload-videos": "node scripts/upload-videos.js",
     "upload-videos-manual": "node scripts/upload-videos-manual.js",
@@ -16,11 +16,13 @@
     "test-blobs": "node scripts/test-blobs-connection.js"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.2.0",
-    "@nuxtjs/supabase": "^2.0.3",
-    "@supabase/supabase-js": "^2.87.1",
     "nuxt": "^4.2.2",
     "vue": "^3.5.25",
     "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@netlify/blobs": "^8.2.0",
+    "@nuxtjs/supabase": "^2.0.3",
+    "@supabase/supabase-js": "^2.87.1"
   }
 }
