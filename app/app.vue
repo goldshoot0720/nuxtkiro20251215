@@ -144,8 +144,8 @@
                           type="date" 
                           id="sub-nextdate" 
                           v-model="newSubscription.nextdate"
-                          min="2020-01-01"
-                          max="2030-12-31"
+                          min="2025-01-01"
+                          max="2125-12-31"
                           pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}"
                           required
                         >
@@ -260,6 +260,24 @@
         </div>
       </main>
 
+      <!-- 跳轉按鈕 -->
+      <div class="scroll-buttons" v-show="showScrollButtons">
+        <button 
+          class="scroll-btn scroll-to-top" 
+          @click="scrollToTop"
+          title="回到頂部"
+        >
+          ↑
+        </button>
+        <button 
+          class="scroll-btn scroll-to-bottom" 
+          @click="scrollToBottom"
+          title="跳到底部"
+        >
+          ↓
+        </button>
+      </div>
+
       <!-- 遮罩層 (手機版) -->
       <div 
         v-if="isSidebarOpen" 
@@ -276,6 +294,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 // 響應式佈局相關
 const isSidebarOpen = ref(false)
 const activeContent = ref('home')
+const showScrollButtons = ref(false)
 
 // Supabase 客戶端
 const supabase = ref(null)
@@ -355,6 +374,35 @@ const setActiveContent = (content) => {
   // 手機版選擇項目後自動關閉選單
   if (process.client && window.innerWidth <= 768) {
     closeSidebar()
+  }
+}
+
+// 滾動相關方法
+const scrollToTop = () => {
+  if (process.client) {
+    const contentArea = document.querySelector('.content-area')
+    if (contentArea) {
+      contentArea.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  }
+}
+
+const scrollToBottom = () => {
+  if (process.client) {
+    const contentArea = document.querySelector('.content-area')
+    if (contentArea) {
+      contentArea.scrollTo({ top: contentArea.scrollHeight, behavior: 'smooth' })
+    }
+  }
+}
+
+const handleScroll = () => {
+  if (process.client) {
+    const contentArea = document.querySelector('.content-area')
+    if (contentArea) {
+      // 當滾動超過 300px 時顯示按鈕
+      showScrollButtons.value = contentArea.scrollTop > 300
+    }
   }
 }
 
@@ -552,6 +600,13 @@ const handleResize = () => {
 onMounted(async () => {
   if (process.client) {
     window.addEventListener('resize', handleResize)
+    
+    // 添加滾動事件監聽器
+    const contentArea = document.querySelector('.content-area')
+    if (contentArea) {
+      contentArea.addEventListener('scroll', handleScroll)
+    }
+    
     // 初始化 Supabase 客戶端
     const initialized = await initSupabase()
     if (initialized) {
@@ -564,6 +619,12 @@ onMounted(async () => {
 onUnmounted(() => {
   if (process.client) {
     window.removeEventListener('resize', handleResize)
+    
+    // 移除滾動事件監聽器
+    const contentArea = document.querySelector('.content-area')
+    if (contentArea) {
+      contentArea.removeEventListener('scroll', handleScroll)
+    }
   }
 })
 </script>
@@ -1475,6 +1536,75 @@ p {
   
   .label {
     min-width: auto;
+  }
+}
+
+/* 滾動按鈕樣式 */
+.scroll-buttons {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1000;
+}
+
+.scroll-btn {
+  width: 50px;
+  height: 50px;
+  border: none;
+  border-radius: 50%;
+  background: #3498db;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scroll-btn:hover {
+  background: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.scroll-to-top {
+  background: #27ae60;
+}
+
+.scroll-to-top:hover {
+  background: #229954;
+}
+
+.scroll-to-bottom {
+  background: #e74c3c;
+}
+
+.scroll-to-bottom:hover {
+  background: #c0392b;
+}
+
+/* 響應式調整 - 滾動按鈕 */
+@media (max-width: 768px) {
+  .scroll-buttons {
+    right: 15px;
+    bottom: 15px;
+  }
+  
+  .scroll-btn {
+    width: 45px;
+    height: 45px;
+    font-size: 18px;
   }
 }
 </style>
