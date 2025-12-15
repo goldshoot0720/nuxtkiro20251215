@@ -23,10 +23,13 @@ logs
 .env.*
 !.env.example
 
-# Video files (managed by Netlify Blobs)
-*.mp4
+# Video files in root directory (managed by Netlify Blobs)
+# Note: public/videos/ is included in git for direct serving
+/videos/
 *.avi
 *.mov
 *.wmv
 *.flv
-videos/
+
+# Local Netlify folder
+.netlify

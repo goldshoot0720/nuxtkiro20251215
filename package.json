@@ -8,10 +8,13 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "upload-videos": "node scripts/upload-videos.js"
+    "upload-videos": "node scripts/upload-videos.js",
+    "upload-videos-manual": "node scripts/upload-videos-manual.js",
+    "check-blobs": "node scripts/check-blobs.js",
+    "test-blobs": "node scripts/test-blobs-connection.js"
   },
   "dependencies": {
-    "@netlify/blobs": "^8.1.0",
+    "@netlify/blobs": "^8.2.0",
     "@nuxtjs/supabase": "^2.0.3",
     "@supabase/supabase-js": "^2.87.1",
     "nuxt": "^4.2.2",

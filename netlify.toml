@@ -1,25 +1,27 @@
 [build]
-  publish = ".output/public"
   command = "npm run build"
+  publish = ".output/public"
+
+[build.environment]
+  NODE_VERSION = "18"
 
 [functions]
-  directory = ".output/server"
+  directory = "netlify/functions/"
 
-# Netlify Blobs 配置
+[dev]
+  command = "npm run dev"
+  port = 3000
+  publish = ".output/public"
+
+# 重定向規則 - 修正語法
 [[redirects]]
-  from = "/.netlify/blobs/*"
+  from = "/api/blobs/*"
   to = "/.netlify/functions/blob-proxy"
   status = 200
 
-# 影片檔案快取設定
+# 快取設定
 [[headers]]
-  for = "*.mp4"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
-    Content-Type = "video/mp4"
-
-[[headers]]
-  for = "/.netlify/blobs/*"
+  for = "/api/blobs/*"
   [headers.values]
     Cache-Control = "public, max-age=86400"
     Access-Control-Allow-Origin = "*"

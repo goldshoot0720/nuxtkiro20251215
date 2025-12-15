@@ -14,15 +14,26 @@ npm install @netlify/blobs
 
 ### 2. 準備影片檔案
 
-將以下影片檔案放置在 `videos/` 目錄中：
+影片檔案已放置在 `public/videos/` 目錄中：
 
-- `videos/legend.mp4` - 鋒兄的傳奇人生
-- `videos/evolution.mp4` - 鋒兄進化Show🔥
+- `public/videos/19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4` - 鋒兄的傳奇人生
+- `public/videos/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4` - 鋒兄進化Show🔥
 
 ### 3. 上傳影片到 Netlify Blobs
 
+#### 3.1 影片檔案位置
+影片檔案已放置在 public/videos/ 目錄中：
+- `public/videos/19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4` - 鋒兄的傳奇人生
+- `public/videos/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4` - 鋒兄進化Show🔥
+
+#### 3.2 執行上傳
 ```bash
 npm run upload-videos
+```
+
+#### 3.3 檢查上傳狀態
+```bash
+npm run check-blobs
 ```
 
 ### 4. 部署到 Netlify
@@ -37,9 +48,10 @@ npm run upload-videos
 │       └── blob-proxy.js          # Blobs 代理函數
 ├── scripts/
 │   └── upload-videos.js           # 影片上傳腳本
-├── videos/                        # 本地影片檔案 (不會提交到 git)
-│   ├── legend.mp4
-│   └── evolution.mp4
+├── public/
+│   └── videos/                    # 影片檔案目錄
+│       ├── 19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4
+│       └── clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4
 ├── netlify.toml                   # Netlify 配置
 └── NETLIFY_BLOBS_SETUP.md        # 本文件
 ```

@@ -42,20 +42,104 @@
         <div class="content-area">
           <div class="content-display">
             <div v-if="activeContent === 'home'" class="content-section">
-              <h1>歡迎來到首頁</h1>
-              <p>這是一個響應式UI設計示例，展示了不同裝置上的佈局適應。</p>
-              <div class="feature-grid">
-                <div class="feature-card">
-                  <h3>響應式設計</h3>
-                  <p>自動適應不同螢幕尺寸</p>
+              <h1>圖片展示畫廊</h1>
+              <p>展示 public 資料夾中的所有圖片內容</p>
+              
+              <!-- 圖片統計 -->
+              <div class="gallery-stats">
+                <div class="stat-item">
+                  <span class="stat-number">{{ imageFiles.length }}</span>
+                  <span class="stat-label">張圖片</span>
                 </div>
-                <div class="feature-card">
-                  <h3>現代化介面</h3>
-                  <p>簡潔美觀的使用者體驗</p>
+                <div class="stat-item">
+                  <span class="stat-number">{{ categoryCount }}</span>
+                  <span class="stat-label">個分類</span>
                 </div>
-                <div class="feature-card">
-                  <h3>跨平台支援</h3>
-                  <p>支援桌面、平板、手機</p>
+              </div>
+
+              <!-- 搜尋和篩選 -->
+              <div class="gallery-controls">
+                <div class="search-box">
+                  <input 
+                    type="text" 
+                    v-model="searchQuery" 
+                    placeholder="搜尋圖片名稱..."
+                    class="search-input"
+                  >
+                </div>
+                <div class="filter-buttons">
+                  <button 
+                    @click="selectedCategory = 'all'"
+                    :class="{ active: selectedCategory === 'all' }"
+                    class="filter-btn"
+                  >
+                    全部
+                  </button>
+                  <button 
+                    v-for="category in imageCategories" 
+                    :key="category"
+                    @click="selectedCategory = category"
+                    :class="{ active: selectedCategory === category }"
+                    class="filter-btn"
+                  >
+                    {{ getCategoryDisplayName(category) }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 圖片畫廊 -->
+              <div class="image-gallery">
+                <div 
+                  v-for="image in filteredImages" 
+                  :key="image.name"
+                  class="image-card"
+                  @click="openImageModal(image)"
+                >
+                  <div class="image-container">
+                    <img 
+                      :src="image.url" 
+                      :alt="image.name"
+                      class="gallery-image"
+                      loading="lazy"
+                      @error="onImageError"
+                    >
+                    <div class="image-actions-overlay">
+                      <button class="action-btn view" title="查看大圖">
+                        🔍
+                      </button>
+                      <button class="action-btn download" title="下載" @click.stop="downloadImage(image)">
+                        📥
+                      </button>
+                    </div>
+                  </div>
+                  <div class="image-info">
+                    <h4 class="image-title">{{ getImageDisplayName(image.name) }}</h4>
+                    <p class="image-category">{{ getCategoryDisplayName(image.category) }}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 載入更多 -->
+              <div v-if="hasMoreImages" class="load-more">
+                <button @click="loadMoreImages" class="load-more-btn">
+                  載入更多圖片
+                </button>
+              </div>
+
+              <!-- 圖片模態框 -->
+              <div v-if="selectedImage" class="image-modal" @click="closeImageModal">
+                <div class="modal-content" @click.stop>
+                  <button class="modal-close" @click="closeImageModal">✕</button>
+                  <img 
+                    :src="selectedImage.url" 
+                    :alt="selectedImage.name"
+                    class="modal-image"
+                  >
+                  <div class="modal-info">
+                    <h3>{{ getImageDisplayName(selectedImage.name) }}</h3>
+                    <p>分類：{{ getCategoryDisplayName(selectedImage.category) }}</p>
+                    <p>檔案名稱：{{ selectedImage.name }}</p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -323,12 +407,35 @@
                           controls
                           preload="metadata"
                           class="video-player"
+                          ref="legendVideo"
                           @loadstart="onVideoLoadStart('legend')"
                           @canplay="onVideoCanPlay('legend')"
                           @error="onVideoError('legend')"
+                          @timeupdate="onTimeUpdate('legend')"
+                          @loadedmetadata="onLoadedMetadata('legend')"
                         >
                           您的瀏覽器不支援影片播放。
                         </video>
+                        
+                        <!-- 自定義時間軸 -->
+                        <div v-if="videoUrls.legend" class="custom-timeline">
+                          <div class="timeline-info">
+                            <span class="current-time">{{ formatTime(videoTimes.legend.current) }}</span>
+                            <span class="duration">{{ formatTime(videoTimes.legend.duration) }}</span>
+                          </div>
+                          <div class="timeline-container" @click="seekVideo('legend', $event)">
+                            <div class="timeline-track">
+                              <div 
+                                class="timeline-progress" 
+                                :style="{ width: videoProgress.legend + '%' }"
+                              ></div>
+                              <div 
+                                class="timeline-handle" 
+                                :style="{ left: videoProgress.legend + '%' }"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
                         <div v-else class="video-placeholder">
                           <div class="placeholder-content">
                             <span class="placeholder-icon">🎬</span>
@@ -382,12 +489,35 @@
                           controls
                           preload="metadata"
                           class="video-player"
+                          ref="evolutionVideo"
                           @loadstart="onVideoLoadStart('evolution')"
                           @canplay="onVideoCanPlay('evolution')"
                           @error="onVideoError('evolution')"
+                          @timeupdate="onTimeUpdate('evolution')"
+                          @loadedmetadata="onLoadedMetadata('evolution')"
                         >
                           您的瀏覽器不支援影片播放。
                         </video>
+                        
+                        <!-- 自定義時間軸 -->
+                        <div v-if="videoUrls.evolution" class="custom-timeline">
+                          <div class="timeline-info">
+                            <span class="current-time">{{ formatTime(videoTimes.evolution.current) }}</span>
+                            <span class="duration">{{ formatTime(videoTimes.evolution.duration) }}</span>
+                          </div>
+                          <div class="timeline-container" @click="seekVideo('evolution', $event)">
+                            <div class="timeline-track">
+                              <div 
+                                class="timeline-progress" 
+                                :style="{ width: videoProgress.evolution + '%' }"
+                              ></div>
+                              <div 
+                                class="timeline-handle" 
+                                :style="{ left: videoProgress.evolution + '%' }"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
                         <div v-else class="video-placeholder">
                           <div class="placeholder-content">
                             <span class="placeholder-icon">🎬</span>
@@ -863,6 +993,102 @@ const foodManager = ref(null)
 const subscriptions = ref([])
 const foods = ref([])
 
+// 圖片畫廊相關
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+const selectedImage = ref(null)
+const displayedImageCount = ref(20)
+
+// 圖片文件列表
+const imageFiles = ref([
+  // ChatGPT 生成圖片
+  { name: 'ChatGPT Image 2025年10月26日 下午07_21_51.jpeg', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年10月26日 下午07_37_12.jpeg', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年10月26日 下午07_45_30.jpeg', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月10日 下午07 07.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月10日 下午07_29.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月13日 下午09_08_37.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月13日 下午09_10_45.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月13日 下午09_18_36.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月13日 下午10_19_22@.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月13日 下午10_19_22@@.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月18日 下午02_00_03.png', category: 'chatgpt' },
+  { name: 'ChatGPT Image 2025年11月18日 下午02_11_13.png', category: 'chatgpt' },
+  
+  // Gemini 生成圖片
+  { name: 'Gemini_Generated_Image_1acyxf1acyxf1acy.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_1xs3cf1xs3cf1xs3.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_3348083348083348.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_4iscnp4iscnp4isc.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_5xiatu5xiatu5xia.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_76qn2776qn2776qn.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_a5eanqa5eanqa5ea.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_a7lvpba7lvpba7lv.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_a959gfa959gfa959.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_asj7abasj7abasj7.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_avufzzavufzzavuf.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_azcmkgazcmkgazcm.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_br5g4ybr5g4ybr5g.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_c7gqahc7gqahc7gq.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_cuhb9mcuhb9mcuhb.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_empb0tempb0tempb.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_f7jzmkf7jzmkf7jz.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_gb7e0tgb7e0tgb7e.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_grs13tgrs13tgrs1.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_jc0z4ojc0z4ojc0z.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_kzhm4pkzhm4pkzhm.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_mc90rjmc90rjmc90.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_n016vun016vun016.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_no8fxsno8fxsno8f.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_p8s78p8s78p8s78p.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_urahmhurahmhurah.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_xcac14xcac14xcac.png', category: 'gemini' },
+  { name: 'Gemini_Generated_Image_xfh0ydxfh0ydxfh0.png', category: 'gemini' },
+  
+  // MindVideo 圖片
+  { name: 'MindVideo_20251128135952_420.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128184816_627.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128190433_123.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128190629_343.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128191517_115.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128192530_578.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128201528_755.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251128203653_134.jpg', category: 'mindvideo' },
+  { name: 'MindVideo_20251203161758_843.png', category: 'mindvideo' },
+  { name: 'MindVideo_20251212222832_232.png', category: 'mindvideo' },
+  { name: 'MindVideo_20251214000745_021.png', category: 'mindvideo' },
+  { name: 'MindVideo_20251214013030_085.png', category: 'mindvideo' },
+  
+  // 其他圖片
+  { name: '11114-product-photo-20231130-54-17pt55y_71998305c2be38bf7096.jpg', category: 'other' },
+  { name: '1761405863-3ca40781-b24f-4c48-9795-7bc061f58ed6.jpeg', category: 'other' },
+  { name: '1761405934-74814b15-9720-44af-a88e-91f4933748c3.jpeg', category: 'other' },
+  { name: '20251104_134814.jpg', category: 'photo' },
+  { name: '248adc66-2260-491b-b5a9-91ca01099528.jpeg', category: 'other' },
+  { name: '41debbc7-e26c-402d-8d29-7fa1b06441b7.jpeg', category: 'other' },
+  { name: '50a2f658-0691-4694-a692-7c53a73c175f.jpg', category: 'other' },
+  { name: '6ca6f5cd3a4e4525aeff15d3b43cd8c0.jpeg', category: 'other' },
+  { name: '9ed35a46-9d95-4376-bd47-a267b49a22c0.jpeg', category: 'other' },
+  { name: 'a31b59e0-088a-4d22-991b-a040af3884fa.jpeg', category: 'other' },
+  { name: 'BackTshirtBack.jpeg', category: 'product' },
+  { name: 'ec6a52ef-397a-481d-a1c2-4336dabc2eb5.jpeg', category: 'other' },
+  { name: 'f56a77b4-342b-4624-aaee-0a1eefda1c02.jpeg', category: 'other' },
+  { name: 'Google-logo_1.jpg', category: 'logo' },
+  { name: 'IMG_0032.jpg', category: 'photo' },
+  { name: 'Screenshot 2025-10-26 at 21-54-22 20251026_2146_01k8gbv2ynecwrezhhpnx3cwg1.mp4.png', category: 'screenshot' },
+  { name: 'Screenshot 2025-12-05 at 00-22-42 .png', category: 'screenshot' },
+  { name: 'sora2.jpg', category: 'ai' }
+]
+.filter(img => {
+  // 只保留 JPG/JPEG/PNG 格式的圖片
+  const extension = img.name.toLowerCase().split('.').pop()
+  return ['jpg', 'jpeg', 'png'].includes(extension)
+})
+.map(img => ({
+  ...img,
+  url: `/images/${img.name}`
+})))
+
 // Supabase 客戶端
 const supabase = ref(null)
 
@@ -943,6 +1169,21 @@ const videoStatuses = ref({
   legend: '未載入',
   evolution: '未載入'
 })
+
+// 影片時間和進度追蹤
+const videoTimes = ref({
+  legend: { current: 0, duration: 0 },
+  evolution: { current: 0, duration: 0 }
+})
+
+const videoProgress = ref({
+  legend: 0,
+  evolution: 0
+})
+
+// 影片元素引用
+const legendVideo = ref(null)
+const evolutionVideo = ref(null)
 
 const totalCacheSize = ref(0)
 
@@ -1108,6 +1349,102 @@ const foodsExpiring30Days = computed(() => {
     return toDate <= thirtyDaysLater && toDate > sevenDaysLater
   })
 })
+
+// 圖片畫廊計算屬性
+const imageCategories = computed(() => {
+  const categories = [...new Set(imageFiles.value.map(img => img.category))]
+  return categories.sort()
+})
+
+const categoryCount = computed(() => {
+  return imageCategories.value.length
+})
+
+const filteredImages = computed(() => {
+  let filtered = imageFiles.value
+
+  // 按分類篩選
+  if (selectedCategory.value !== 'all') {
+    filtered = filtered.filter(img => img.category === selectedCategory.value)
+  }
+
+  // 按搜尋關鍵字篩選
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    filtered = filtered.filter(img => 
+      img.name.toLowerCase().includes(query) ||
+      getCategoryDisplayName(img.category).toLowerCase().includes(query)
+    )
+  }
+
+  // 限制顯示數量
+  return filtered.slice(0, displayedImageCount.value)
+})
+
+const hasMoreImages = computed(() => {
+  let totalFiltered = imageFiles.value
+
+  if (selectedCategory.value !== 'all') {
+    totalFiltered = totalFiltered.filter(img => img.category === selectedCategory.value)
+  }
+
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    totalFiltered = totalFiltered.filter(img => 
+      img.name.toLowerCase().includes(query) ||
+      getCategoryDisplayName(img.category).toLowerCase().includes(query)
+    )
+  }
+
+  return totalFiltered.length > displayedImageCount.value
+})
+
+// 圖片畫廊方法
+const getCategoryDisplayName = (category) => {
+  const categoryNames = {
+    'chatgpt': 'ChatGPT',
+    'gemini': 'Gemini',
+    'mindvideo': 'MindVideo',
+    'photo': '照片',
+    'screenshot': '截圖',
+    'product': '產品',
+    'logo': '標誌',
+    'ai': 'AI生成',
+    'other': '其他'
+  }
+  return categoryNames[category] || category
+}
+
+const getImageDisplayName = (filename) => {
+  // 移除副檔名並簡化顯示名稱（只處理支援的圖片格式）
+  return filename.replace(/\.(jpg|jpeg|png)$/i, '')
+}
+
+const openImageModal = (image) => {
+  selectedImage.value = image
+}
+
+const closeImageModal = () => {
+  selectedImage.value = null
+}
+
+const downloadImage = (image) => {
+  const link = document.createElement('a')
+  link.href = image.url
+  link.download = image.name
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+const loadMoreImages = () => {
+  displayedImageCount.value += 20
+}
+
+const onImageError = (event) => {
+  console.error('圖片載入失敗:', event.target.src)
+  event.target.style.display = 'none'
+}
 
 // 響應式佈局方法
 const toggleSidebar = () => {
@@ -1516,34 +1853,61 @@ const loadVideo = async (videoKey) => {
     videoLoading.value[videoKey] = true
     videoStatuses.value[videoKey] = '載入中...'
     
-    // 模擬 Netlify Blobs API 調用
+    // 影片檔案對應
     const videoFiles = {
       legend: '19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4',
       evolution: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4'
     }
     
-    // 模擬從 Netlify Blobs 獲取影片 URL
-    const blobUrl = `/.netlify/blobs/${videoFiles[videoKey]}`
+    // 嘗試多個來源：Netlify Blobs -> public 目錄
+    const possibleUrls = [
+      `/.netlify/blobs/${videoFiles[videoKey]}`,  // Netlify Blobs
+      `/api/blobs/${videoFiles[videoKey]}`,       // 通過代理函數
+      `/videos/${videoFiles[videoKey]}`           // public 目錄備用
+    ]
     
-    // 檢查影片是否可用
-    const response = await fetch(blobUrl, { method: 'HEAD' })
+    let videoUrl = null
+    let loadSource = ''
     
-    if (response.ok) {
-      videoUrls.value[videoKey] = blobUrl
-      videoStatuses.value[videoKey] = '已載入'
-      
-      // 更新快取大小（模擬）
-      const contentLength = response.headers.get('content-length')
-      if (contentLength) {
-        totalCacheSize.value += parseInt(contentLength)
+    // 依序嘗試每個 URL
+    for (const url of possibleUrls) {
+      try {
+        const response = await fetch(url, { method: 'HEAD' })
+        if (response.ok) {
+          videoUrl = url
+          loadSource = url.includes('/.netlify/blobs/') ? 'Netlify Blobs' : 'Public 目錄'
+          
+          // 更新快取大小（如果有 content-length）
+          const contentLength = response.headers.get('content-length')
+          if (contentLength) {
+            totalCacheSize.value += parseInt(contentLength)
+          }
+          break
+        }
+      } catch (err) {
+        console.log(`嘗試載入 ${url} 失敗:`, err.message)
       }
-    } else {
-      throw new Error('影片不可用')
     }
+    
+    if (videoUrl) {
+      videoUrls.value[videoKey] = videoUrl
+      videoStatuses.value[videoKey] = `已載入 (${loadSource})`
+      console.log(`影片 ${videoKey} 從 ${loadSource} 載入成功`)
+    } else {
+      throw new Error('所有來源都無法載入影片')
+    }
+    
   } catch (error) {
     console.error(`載入影片 ${videoKey} 失敗:`, error)
     videoStatuses.value[videoKey] = '載入失敗'
-    alert(`載入影片失敗: ${error.message}`)
+    
+    // 提供更詳細的錯誤提示
+    const videoFiles = {
+      legend: '19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4',
+      evolution: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4'
+    }
+    
+    alert(`載入影片失敗: ${error.message}\n\n請確保影片檔案存在於以下位置之一：\n1. Netlify Blobs\n2. public/videos/${videoFiles[videoKey]}`)
   } finally {
     videoLoading.value[videoKey] = false
   }
@@ -1616,6 +1980,66 @@ const formatCacheSize = (bytes) => {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 時間格式化方法
+const formatTime = (seconds) => {
+  if (isNaN(seconds) || seconds === 0) return '0:00'
+  
+  const minutes = Math.floor(seconds / 60)
+  const remainingSeconds = Math.floor(seconds % 60)
+  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+}
+
+// 影片時間更新事件
+const onTimeUpdate = (videoKey) => {
+  const videoElement = getVideoElement(videoKey)
+  if (videoElement) {
+    videoTimes.value[videoKey].current = videoElement.currentTime
+    
+    // 計算進度百分比
+    if (videoTimes.value[videoKey].duration > 0) {
+      videoProgress.value[videoKey] = (videoElement.currentTime / videoTimes.value[videoKey].duration) * 100
+    }
+  }
+}
+
+// 影片元數據載入事件
+const onLoadedMetadata = (videoKey) => {
+  const videoElement = getVideoElement(videoKey)
+  if (videoElement) {
+    videoTimes.value[videoKey].duration = videoElement.duration
+  }
+}
+
+// 獲取影片元素
+const getVideoElement = (videoKey) => {
+  if (videoKey === 'legend') {
+    return legendVideo.value
+  } else if (videoKey === 'evolution') {
+    return evolutionVideo.value
+  }
+  return null
+}
+
+// 時間軸點擊跳轉
+const seekVideo = (videoKey, event) => {
+  const videoElement = getVideoElement(videoKey)
+  if (!videoElement || videoTimes.value[videoKey].duration === 0) return
+  
+  const timelineContainer = event.currentTarget
+  const rect = timelineContainer.getBoundingClientRect()
+  const clickX = event.clientX - rect.left
+  const percentage = clickX / rect.width
+  
+  // 計算目標時間
+  const targetTime = percentage * videoTimes.value[videoKey].duration
+  
+  // 跳轉到指定時間
+  videoElement.currentTime = Math.max(0, Math.min(targetTime, videoTimes.value[videoKey].duration))
+  
+  // 更新進度
+  videoProgress.value[videoKey] = percentage * 100
 }
 
 // 輔助方法
@@ -3219,6 +3643,78 @@ p {
   background: #c0392b;
 }
 
+/* 自定義時間軸樣式 */
+.custom-timeline {
+  padding: 1rem;
+  background: rgba(0,0,0,0.05);
+  border-top: 1px solid #e1e8ed;
+}
+
+.timeline-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.current-time {
+  font-weight: bold;
+  color: #3498db;
+}
+
+.duration {
+  color: #7f8c8d;
+}
+
+.timeline-container {
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.timeline-track {
+  position: relative;
+  height: 6px;
+  background: #e1e8ed;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.timeline-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
+  border-radius: 3px;
+  transition: width 0.1s ease;
+}
+
+.timeline-handle {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  background: #3498db;
+  border: 2px solid white;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+  transition: left 0.1s ease;
+}
+
+.timeline-handle:hover {
+  background: #2980b9;
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+.timeline-container:hover .timeline-track {
+  height: 8px;
+}
+
+.timeline-container:hover .timeline-handle {
+  width: 18px;
+  height: 18px;
+}
+
 /* 響應式調整 - 影片管理 */
 @media (max-width: 768px) {
   .video-grid {
@@ -3252,6 +3748,19 @@ p {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
+  }
+  
+  .custom-timeline {
+    padding: 0.75rem;
+  }
+  
+  .timeline-info {
+    font-size: 0.8rem;
+  }
+  
+  .timeline-handle {
+    width: 20px;
+    height: 20px;
   }
 }
 /* 關於我們頁面樣式 */
@@ -3480,5 +3989,331 @@ p {
   
   .copyright-text {
     font-size: 1rem;
+  }
+}
+
+/* 圖片畫廊樣式 */
+.gallery-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  margin: 2rem 0;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  color: white;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.stat-number {
+  display: block;
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 1rem;
+  opacity: 0.9;
+}
+
+.gallery-controls {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.search-box {
+  margin-bottom: 1rem;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+}
+
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid #ddd;
+  background: white;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.filter-btn:hover {
+  background: #f8f9fa;
+  border-color: #3498db;
+}
+
+.filter-btn.active {
+  background: #3498db;
+  color: white;
+  border-color: #3498db;
+}
+
+.image-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.image-card {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.image-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.image-container {
+  position: relative;
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+}
+
+.gallery-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.image-card:hover .gallery-image {
+  transform: scale(1.05);
+}
+
+.image-actions-overlay {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.5rem;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.image-card:hover .image-actions-overlay {
+  opacity: 1;
+}
+
+.image-info {
+  padding: 1rem;
+  background: white;
+}
+
+.image-title {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #2c3e50;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.image-category {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #7f8c8d;
+  background: #f8f9fa;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  display: inline-block;
+}
+
+.action-btn {
+  background: rgba(0,0,0,0.7);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+
+.action-btn:hover {
+  background: rgba(0,0,0,0.9);
+  transform: scale(1.1);
+}
+
+.load-more {
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.load-more-btn {
+  background: #3498db;
+  color: white;
+  border: none;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.load-more-btn:hover {
+  background: #2980b9;
+}
+
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 2rem;
+}
+
+.modal-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 1.5rem;
+  z-index: 1;
+  transition: background-color 0.2s;
+}
+
+.modal-close:hover {
+  background: rgba(0,0,0,0.7);
+}
+
+.modal-image {
+  max-width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  display: block;
+}
+
+.modal-info {
+  padding: 1.5rem;
+  background: white;
+}
+
+.modal-info h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+}
+
+.modal-info p {
+  margin: 0 0 0.5rem 0;
+  color: #555;
+}
+
+/* 響應式調整 - 圖片畫廊 */
+@media (max-width: 768px) {
+  .gallery-stats {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+  
+  .stat-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+  }
+  
+  .stat-number {
+    font-size: 2rem;
+    margin-bottom: 0;
+  }
+  
+  .image-gallery {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+  
+  .filter-buttons {
+    justify-content: center;
+  }
+  
+  .image-modal {
+    padding: 1rem;
+  }
+  
+  .modal-content {
+    max-width: 95vw;
+    max-height: 95vh;
+  }
+  
+  .modal-info {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .image-gallery {
+    grid-template-columns: 1fr;
+  }
+  
+  .gallery-controls {
+    padding: 1rem;
+  }
+  
+  .filter-btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
   }
 }
