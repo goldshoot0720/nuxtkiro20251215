@@ -1120,7 +1120,6 @@ const initSupabase = async () => {
 
 // 訂閱相關
 const subscriptionLoading = ref(false)
-const subscriptions = ref([])
 const editingSubscription = ref(null)
 
 // 新增訂閱表單
