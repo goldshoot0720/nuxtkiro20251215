@@ -182,7 +182,7 @@
                     <h3>我的訂閱服務</h3>
                     <div class="summary">
                       <span class="total-count">共 {{ subscriptions.length }} 個服務</span>
-                      <span class="total-cost">月總費用：NT$ {{ totalMonthlyCost }}</span>
+                      <span class="total-cost">本月總費用：NT$ {{ totalMonthlyCost }}</span>
                     </div>
                   </div>
                   
