@@ -6,6 +6,11 @@ export default defineNuxtConfig({
   // SSR模式 (服务器端渲染)
   ssr: true,
   
+  // Netlify部署配置
+  nitro: {
+    preset: 'netlify'
+  },
+  
   components: {
     global: true,
     dirs: ['~/components']

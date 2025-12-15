@@ -1,24 +1,12 @@
 [build]
   command = "npm run build"
-  functions = ".output/server"
+  publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--production=false"
 
 [functions]
   directory = "netlify/functions/"
-
-[dev]
-  command = "npm run dev"
-  port = 3000
-  publish = ".output/public"
-
-# SSR重定向規則
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions/server"
-  status = 200
 
 # API重定向規則
 [[redirects]]
