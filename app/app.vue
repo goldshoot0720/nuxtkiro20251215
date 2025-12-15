@@ -2060,7 +2060,7 @@ p {
 
 .foods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 1.5rem;
 }
 
@@ -2115,6 +2115,13 @@ p {
 }
 
 /* 響應式調整 - 食品管理 */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .foods-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+}
+
 @media (max-width: 768px) {
   .foods-grid {
     grid-template-columns: 1fr;
