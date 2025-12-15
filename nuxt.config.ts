@@ -5,6 +5,9 @@ export default defineNuxtConfig({
   
   // 静态站点生成配置
   nitro: {
+    output: {
+      dir: '.output'
+    },
     prerender: {
       routes: ['/', '/about']
     }
