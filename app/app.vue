@@ -2112,10 +2112,10 @@ p {
   }
 }
 .food-photo {
-  width: 100%;
-  max-width: 20px;
-  height: 12px;
+  width: 10%;
+  max-width: none;
+  height: auto;
   object-fit: cover;
-  border-radius: 2px;
-  margin-bottom: 0.2rem;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
 }
