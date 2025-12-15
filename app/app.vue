@@ -16,11 +16,13 @@
         </div>
         <ul class="nav-list">
           <li><a href="#" @click="setActiveContent('home')">首頁</a></li>
-          <li><a href="#" @click="setActiveContent('about')">關於我們</a></li>
-          <li><a href="#" @click="setActiveContent('services')">服務項目</a></li>
-          <li><a href="#" @click="setActiveContent('portfolio')">作品集</a></li>
+          <li><a href="#" @click="setActiveContent('dashboard')">儀表板</a></li>
           <li><a href="#" @click="setActiveContent('subscription')">訂閱管理</a></li>
           <li><a href="#" @click="setActiveContent('food')">食品管理</a></li>
+          <li><a href="#" @click="setActiveContent('services')">服務項目</a></li>
+          <li><a href="#" @click="setActiveContent('portfolio')">作品集</a></li>
+          <li><a href="#" @click="setActiveContent('videos')">影片介紹</a></li>
+          <li><a href="#" @click="setActiveContent('about')">關於我們</a></li>
           <li><a href="#" @click="setActiveContent('contact')">聯絡我們</a></li>
         </ul>
       </nav>
@@ -54,6 +56,113 @@
                 <div class="feature-card">
                   <h3>跨平台支援</h3>
                   <p>支援桌面、平板、手機</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="activeContent === 'dashboard'" class="content-section">
+              <h1>儀表板</h1>
+              
+              <!-- 儀表板總覽 -->
+              <div class="dashboard-overview">
+                <div class="dashboard-stats">
+                  <div class="stat-card">
+                    <h3>訂閱服務</h3>
+                    <div class="stat-number">{{ subscriptions.length }}</div>
+                    <div class="stat-label">總數</div>
+                  </div>
+                  <div class="stat-card">
+                    <h3>食品庫存</h3>
+                    <div class="stat-number">{{ foods.length }}</div>
+                    <div class="stat-label">總數</div>
+                  </div>
+                  <div class="stat-card">
+                    <h3>本月費用</h3>
+                    <div class="stat-number">NT$ {{ totalMonthlyCost }}</div>
+                    <div class="stat-label">訂閱總費用</div>
+                  </div>
+                </div>
+
+                <!-- 警告區域 -->
+                <div class="dashboard-alerts">
+                  <h3>⚠️ 重要提醒</h3>
+                  
+                  <!-- 訂閱到期提醒 -->
+                  <div class="alert-section">
+                    <h4>📅 訂閱到期提醒</h4>
+                    <div class="alert-grid">
+                      <div class="alert-card critical" v-if="subscriptionsExpiring3Days.length > 0">
+                        <div class="alert-header">
+                          <span class="alert-icon">🚨</span>
+                          <span class="alert-title">3天內到期</span>
+                          <span class="alert-count">{{ subscriptionsExpiring3Days.length }}</span>
+                        </div>
+                        <div class="alert-items">
+                          <div v-for="sub in subscriptionsExpiring3Days" :key="sub.id" class="alert-item">
+                            {{ sub.name }} - {{ formatDate(sub.nextdate) }}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="alert-card warning" v-if="subscriptionsExpiring7Days.length > 0">
+                        <div class="alert-header">
+                          <span class="alert-icon">⚠️</span>
+                          <span class="alert-title">7天內到期</span>
+                          <span class="alert-count">{{ subscriptionsExpiring7Days.length }}</span>
+                        </div>
+                        <div class="alert-items">
+                          <div v-for="sub in subscriptionsExpiring7Days" :key="sub.id" class="alert-item">
+                            {{ sub.name }} - {{ formatDate(sub.nextdate) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 食品過期提醒 -->
+                  <div class="alert-section">
+                    <h4>🍎 食品過期提醒</h4>
+                    <div class="alert-grid">
+                      <div class="alert-card critical" v-if="foodsExpiring7Days.length > 0">
+                        <div class="alert-header">
+                          <span class="alert-icon">🚨</span>
+                          <span class="alert-title">7天內過期</span>
+                          <span class="alert-count">{{ foodsExpiring7Days.length }}</span>
+                        </div>
+                        <div class="alert-items">
+                          <div v-for="food in foodsExpiring7Days" :key="food.id" class="alert-item">
+                            {{ food.name }} - {{ formatDate(food.todate) }}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="alert-card warning" v-if="foodsExpiring30Days.length > 0">
+                        <div class="alert-header">
+                          <span class="alert-icon">⚠️</span>
+                          <span class="alert-title">30天內過期</span>
+                          <span class="alert-count">{{ foodsExpiring30Days.length }}</span>
+                        </div>
+                        <div class="alert-items">
+                          <div v-for="food in foodsExpiring30Days" :key="food.id" class="alert-item">
+                            {{ food.name }} - {{ formatDate(food.todate) }}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 快速操作 -->
+                <div class="dashboard-actions">
+                  <h3>🚀 快速操作</h3>
+                  <div class="action-buttons">
+                    <button @click="setActiveContent('subscription')" class="action-btn primary">
+                      新增訂閱服務
+                    </button>
+                    <button @click="setActiveContent('food')" class="action-btn secondary">
+                      新增食品記錄
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -580,6 +689,57 @@ const sortedSubscriptions = computed(() => {
     const dateA = new Date(a.nextdate)
     const dateB = new Date(b.nextdate)
     return dateA - dateB
+  })
+})
+
+// 儀表板相關計算屬性
+// 3天內到期的訂閱
+const subscriptionsExpiring3Days = computed(() => {
+  const today = new Date()
+  const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
+  
+  return subscriptions.value.filter(sub => {
+    if (!sub.nextdate) return false
+    const nextDate = new Date(sub.nextdate)
+    return nextDate <= threeDaysLater && nextDate >= today
+  })
+})
+
+// 7天內到期的訂閱
+const subscriptionsExpiring7Days = computed(() => {
+  const today = new Date()
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  const threeDaysLater = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000)
+  
+  return subscriptions.value.filter(sub => {
+    if (!sub.nextdate) return false
+    const nextDate = new Date(sub.nextdate)
+    return nextDate <= sevenDaysLater && nextDate > threeDaysLater
+  })
+})
+
+// 7天內過期的食品
+const foodsExpiring7Days = computed(() => {
+  const today = new Date()
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  return foods.value.filter(food => {
+    if (!food.todate) return false
+    const toDate = new Date(food.todate)
+    return toDate <= sevenDaysLater && toDate >= today
+  })
+})
+
+// 30天內過期的食品（排除7天內的）
+const foodsExpiring30Days = computed(() => {
+  const today = new Date()
+  const thirtyDaysLater = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+  
+  return foods.value.filter(food => {
+    if (!food.todate) return false
+    const toDate = new Date(food.todate)
+    return toDate <= thirtyDaysLater && toDate > sevenDaysLater
   })
 })
 
@@ -2180,5 +2340,199 @@ p {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.2rem;
+  }
+}
+/* 儀表板樣式 */
+.dashboard-overview {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 1.5rem;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.stat-card h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+  font-size: 1rem;
+}
+
+.stat-number {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #3498db;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  color: #7f8c8d;
+  font-size: 0.9rem;
+}
+
+.dashboard-alerts {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-alerts h3 {
+  margin: 0 0 1.5rem 0;
+  color: #e74c3c;
+}
+
+.alert-section {
+  margin-bottom: 2rem;
+}
+
+.alert-section:last-child {
+  margin-bottom: 0;
+}
+
+.alert-section h4 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+}
+
+.alert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.alert-card {
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid;
+}
+
+.alert-card.critical {
+  background: #fdf2f2;
+  border-left-color: #e74c3c;
+}
+
+.alert-card.warning {
+  background: #fef9e7;
+  border-left-color: #f39c12;
+}
+
+.alert-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.alert-icon {
+  font-size: 1.2rem;
+}
+
+.alert-title {
+  font-weight: bold;
+  flex: 1;
+}
+
+.alert-count {
+  background: rgba(0,0,0,0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.alert-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.alert-item {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.dashboard-actions {
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 12px;
+  padding: 2rem;
+}
+
+.dashboard-actions h3 {
+  margin: 0 0 1rem 0;
+  color: #2c3e50;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  text-align: center;
+}
+
+.action-btn.primary {
+  background: #3498db;
+  color: white;
+}
+
+.action-btn.primary:hover {
+  background: #2980b9;
+}
+
+.action-btn.secondary {
+  background: #95a5a6;
+  color: white;
+}
+
+.action-btn.secondary:hover {
+  background: #7f8c8d;
+}
+
+/* 響應式調整 - 儀表板 */
+@media (max-width: 768px) {
+  .dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+  
+  .alert-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .action-buttons {
+    flex-direction: column;
+  }
+  
+  .action-btn {
+    width: 100%;
   }
 }
