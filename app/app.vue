@@ -1324,7 +1324,7 @@ const getVideoUrl = (blobKey) => {
   }
   
   // 使用 Netlify Blobs API
-  return `/.netlify/blobs/${blobKey}`
+  return `/api/blobs/${blobKey}`
 }
 
 const onVideoLoadStart = (blobKey) => {
@@ -1375,7 +1375,7 @@ const cacheVideo = async (blobKey) => {
   video.caching = true
   
   try {
-    const response = await fetch(`/.netlify/blobs/${blobKey}`)
+    const response = await fetch(`/api/blobs/${blobKey}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     
     const blob = await response.blob()
@@ -1432,7 +1432,7 @@ const clearVideoCache = (blobKey) => {
   // 重置影片元素的 src
   const videoEl = document.querySelector(`[ref="video-${blobKey}"]`)
   if (videoEl) {
-    videoEl.src = `/.netlify/blobs/${blobKey}`
+    videoEl.src = `/api/blobs/${blobKey}`
   }
   
   showCacheMessage(`影片 "${video.displayName}" 快取已清除`, 'info')
@@ -1474,7 +1474,7 @@ const clearAllCache = () => {
     // 重置影片元素的 src
     const videoEl = document.querySelector(`[ref="video-${video.blobKey}"]`)
     if (videoEl) {
-      videoEl.src = `/.netlify/blobs/${video.blobKey}`
+      videoEl.src = `/api/blobs/${video.blobKey}`
     }
   })
   
@@ -1506,7 +1506,7 @@ const checkBlobsStatus = async () => {
     for (const video of videoList.value) {
       try {
         // 嘗試訪問 blob URL 來檢查是否存在
-        const response = await fetch(`/.netlify/blobs/${video.blobKey}`, { method: 'HEAD' })
+        const response = await fetch(`/api/blobs/${video.blobKey}`, { method: 'HEAD' })
         video.blobExists = response.ok
         
         if (response.ok) {
@@ -1538,7 +1538,7 @@ const checkBlobsStatus = async () => {
 
 const downloadVideo = async (blobKey, displayName) => {
   try {
-    const response = await fetch(`/.netlify/blobs/${blobKey}`)
+    const response = await fetch(`/api/blobs/${blobKey}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     
     const blob = await response.blob()

@@ -12,7 +12,11 @@
     "upload-videos": "node scripts/upload-videos.js",
     "upload-videos-manual": "node scripts/upload-videos-manual.js",
     "check-blobs": "node scripts/check-blobs.js",
-    "test-blobs": "node scripts/test-blobs-connection.js"
+    "test-blobs": "node scripts/test-blobs-connection.js",
+    "manage-blobs": "node scripts/blob-manager.js",
+    "list-blobs": "node scripts/blob-manager.js list",
+    "blob-report": "node scripts/blob-manager.js report",
+    "test-blob-access": "node scripts/test-blob-access.js"
   },
   "dependencies": {
     "@netlify/blobs": "^8.2.0",

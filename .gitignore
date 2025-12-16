@@ -23,13 +23,16 @@ logs
 .env.*
 !.env.example
 
-# Video files in root directory (managed by Netlify Blobs)
-# Note: public/videos/ is included in git for direct serving
+# Video files (managed by Netlify Blobs)
+# Large video files should not be committed to git
 /videos/
-*.avi
-*.mov
-*.wmv
-*.flv
+public/videos/*.mp4
+public/videos/*.avi
+public/videos/*.mov
+public/videos/*.wmv
+public/videos/*.flv
+public/videos/*.mkv
+public/videos/*.webm
 
 # Local Netlify folder
 .netlify

@@ -192,7 +192,7 @@ const getVideoUrl = (blobKey) => {
   }
   
   // 回退到 Netlify Blobs URL
-  return `/.netlify/blobs/${blobKey}`
+  return `/api/blobs/${blobKey}`
 }
 
 // 檢查影片是否已快取
@@ -272,7 +272,7 @@ const preloadVideo = async (blobKey) => {
   
   try {
     // 從 Netlify Blobs 獲取影片
-    const response = await fetch(`/.netlify/blobs/${blobKey}`)
+    const response = await fetch(`/api/blobs/${blobKey}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     
     const blob = await response.blob()
@@ -347,7 +347,7 @@ const clearVideoCache = async (blobKey) => {
     // 重置影片元素的 src
     const videoEl = videoRefs.get(blobKey)
     if (videoEl) {
-      videoEl.src = `/.netlify/blobs/${blobKey}`
+      videoEl.src = `/api/blobs/${blobKey}`
     }
     
     updateCacheSize()
@@ -381,7 +381,7 @@ const clearAllCache = async () => {
     videos.value.forEach(video => {
       const videoEl = videoRefs.get(video.blobKey)
       if (videoEl) {
-        videoEl.src = `/.netlify/blobs/${video.blobKey}`
+        videoEl.src = `/api/blobs/${video.blobKey}`
       }
     })
     
