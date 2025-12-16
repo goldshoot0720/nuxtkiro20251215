@@ -1,7 +1,7 @@
 <template>
   <div class="subscription-management">
     <div class="user-info">
-      <h3>訂閱管理系統</h3>
+      <h3 class="page-brand-title">鋒兄訂閱管理系統</h3>
       <p>管理您的所有訂閱服務</p>
     </div>
 
@@ -74,17 +74,16 @@
           </div>
         </div>
         <div class="form-actions">
-          <button 
+          <button
             @click="handleSubmit"
             class="auth-btn primary"
             :disabled="subscriptionLoading || !newSubscription.name"
           >
             {{ editingSubscription ? '更新訂閱' : '新增訂閱' }}
           </button>
-          <button 
+          <button
             @click="resetSubscriptionForm"
             class="auth-btn secondary"
-            type="button"
           >
             {{ editingSubscription ? '取消編輯' : '清空' }}
           </button>
@@ -116,14 +115,14 @@
           <div class="card-header">
             <h4>{{ subscription.name }}</h4>
             <div class="card-actions">
-              <button 
+              <button
                 @click="editSubscription(subscription)"
                 class="action-btn edit"
                 title="編輯"
               >
                 ✏️
               </button>
-              <button 
+              <button
                 @click="deleteSubscription(subscription.id)"
                 class="action-btn delete"
                 title="刪除"
@@ -455,9 +454,80 @@ defineExpose({
   }
 }
 
+/* ===== 響應式設計優化 ===== */
+
+/* 桌面端優化 */
+@media (min-width: 1200px) {
+  .subscription-management {
+    max-width: 1200px;
+  }
+  
+  .subscriptions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 2rem;
+  }
+  
+  .subscription-card {
+    padding: 2rem;
+  }
+  
+  .page-brand-title {
+    font-size: 2rem;
+  }
+}
+
+/* 平板端優化 - Redmi Pad SE 8.7 */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .subscription-management {
+    max-width: 900px;
+  }
+  
+  .subscriptions-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .form-row {
+    gap: 1.2rem;
+  }
+  
+  .subscription-card {
+    padding: 1.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.8rem;
+  }
+}
+
+/* 平板橫向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
+  .subscriptions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 平板直向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
+  .subscriptions-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .subscription-card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+/* 手機端通用 */
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .list-header {
@@ -468,26 +538,236 @@ defineExpose({
   
   .summary {
     align-items: flex-start;
+    width: 100%;
   }
   
   .subscriptions-grid {
     grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+  
+  .subscription-card {
+    padding: 1.5rem;
   }
   
   .card-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.5rem;
+    gap: 0.8rem;
+  }
+  
+  .card-actions {
+    align-self: flex-end;
   }
   
   .info-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.25rem;
+    gap: 0.3rem;
   }
   
   .label {
     min-width: auto;
+    font-size: 0.9rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* Samsung Galaxy A53 直向 */
+@media (max-width: 480px) and (orientation: portrait) {
+  .subscription-management {
+    padding: 0;
+  }
+  
+  .user-info,
+  .add-subscription,
+  .subscription-list {
+    margin-bottom: 1.5rem;
+    padding: 1.2rem;
+  }
+  
+  .subscription-card {
+    padding: 1.2rem;
+  }
+  
+  .form-group input {
+    padding: 0.6rem;
+    font-size: 0.95rem;
+  }
+  
+  .auth-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.4rem;
+  }
+  
+  .card-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .action-btn {
+    padding: 0.3rem;
+    font-size: 1.1rem;
+  }
+}
+
+/* Samsung Galaxy A53 橫向 */
+@media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
+  .user-info,
+  .add-subscription,
+  .subscription-list {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .subscription-card {
+    padding: 1rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+  
+  .form-actions {
+    flex-direction: row;
+    gap: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* iPhone SE2 直向 */
+@media (max-width: 375px) and (orientation: portrait) {
+  .user-info,
+  .add-subscription,
+  .subscription-list {
+    padding: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  .subscription-card {
+    padding: 1rem;
+  }
+  
+  .form-group input {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .auth-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.3rem;
+  }
+  
+  .card-header h4 {
+    font-size: 1rem;
+  }
+  
+  .info-row {
+    gap: 0.2rem;
+  }
+  
+  .label {
+    font-size: 0.85rem;
+  }
+  
+  .action-btn {
+    padding: 0.25rem;
+    font-size: 1rem;
+  }
+}
+
+/* iPhone SE2 橫向 */
+@media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
+  .user-info,
+  .add-subscription,
+  .subscription-list {
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .subscription-card {
+    padding: 0.8rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  
+  .form-group input {
+    padding: 0.4rem;
+    font-size: 0.85rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .card-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .info-row {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+}
+
+/* 超小螢幕 */
+@media (max-width: 320px) {
+  .user-info,
+  .add-subscription,
+  .subscription-list {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .subscription-card {
+    padding: 0.8rem;
+  }
+  
+  .form-group input {
+    padding: 0.4rem;
+    font-size: 0.85rem;
+  }
+  
+  .auth-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .card-header h4 {
+    font-size: 0.95rem;
+  }
+  
+  .action-btn {
+    padding: 0.2rem;
+    font-size: 0.9rem;
   }
 }
 </style>

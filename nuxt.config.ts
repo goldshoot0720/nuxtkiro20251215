@@ -6,6 +6,12 @@ export default defineNuxtConfig({
   // SSR模式 (服务器端渲染)
   ssr: true,
   
+  // 模組
+  modules: [],
+  
+  // 全域 CSS
+  css: [],
+  
   // Netlify部署配置
   nitro: {
     preset: 'netlify'

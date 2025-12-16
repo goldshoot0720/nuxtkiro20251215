@@ -1,6 +1,6 @@
 <template>
   <div class="video-manager-container">
-    <h1>影片庫</h1>
+    <h1 class="page-brand-title">鋒兄影片庫</h1>
     
     <!-- 影片管理資訊 -->
     <div class="video-info">
@@ -38,16 +38,29 @@
     <div class="cache-controls">
       <h3>🗂️ 快取管理</h3>
       <div class="control-buttons">
-        <button @click="checkBlobsStatus" class="cache-btn refresh">
+        <button
+          @click="checkBlobsStatus"
+          class="cache-btn refresh"
+        >
           🔄 檢查 Netlify Blobs
         </button>
-        <button @click="preloadAllVideos" class="cache-btn preload" :disabled="isPreloading">
+        <button
+          @click="preloadAllVideos"
+          class="cache-btn preload"
+          :disabled="isPreloading"
+        >
           {{ isPreloading ? '載入中...' : '📥 預載所有影片' }}
         </button>
-        <button @click="clearAllCache" class="cache-btn clear">
+        <button
+          @click="clearAllCache"
+          class="cache-btn clear"
+        >
           🗑️ 清除所有快取
         </button>
-        <button @click="checkCacheStatus" class="cache-btn refresh">
+        <button
+          @click="checkCacheStatus"
+          class="cache-btn refresh"
+        >
           🔄 更新快取狀態
         </button>
       </div>
@@ -100,8 +113,11 @@
             <div v-if="video.error" class="video-error-overlay">
               <div class="error-icon">⚠️</div>
               <p>載入失敗</p>
-              <button @click="retryVideo(video.blobKey)" class="retry-btn">
-                重試
+              <button
+                @click="retryVideo(video.blobKey)"
+                class="retry-btn"
+              >
+                🔄 重試
               </button>
             </div>
           </div>
@@ -123,22 +139,22 @@
             </div>
             
             <div class="video-actions">
-              <button 
-                v-if="!video.cached" 
+              <button
+                v-if="!video.cached"
                 @click="cacheVideo(video.blobKey)"
                 class="action-btn cache"
                 :disabled="video.caching"
               >
                 {{ video.caching ? '快取中...' : '📥 快取影片' }}
               </button>
-              <button 
-                v-if="video.cached" 
+              <button
+                v-if="video.cached"
                 @click="clearVideoCache(video.blobKey)"
                 class="action-btn clear-cache"
               >
                 🗑️ 清除此快取
               </button>
-              <button 
+              <button
                 @click="downloadVideo(video.blobKey, video.displayName)"
                 class="action-btn download"
               >
@@ -682,22 +698,123 @@ defineExpose({
   }
 }
 
-/* 響應式設計 */
-@media (max-width: 768px) {
+/* ===== 響應式設計優化 ===== */
+
+/* 桌面端優化 */
+@media (min-width: 1200px) {
+  .video-manager-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  .videos-grid {
+    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+    gap: 2.5rem;
+  }
+  
+  .video-card {
+    padding: 0;
+  }
+  
+  .video-info-panel {
+    padding: 2rem;
+  }
+  
+  .page-brand-title {
+    font-size: 2rem;
+  }
+  
+  .tech-features {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  }
+}
+
+/* 平板端優化 - Redmi Pad SE 8.7 */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .video-manager-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .videos-grid {
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+  }
+  
+  .video-info-panel {
+    padding: 1.8rem;
+  }
+  
+  .control-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.8rem;
+  }
+  
+  .tech-features {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* 平板橫向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
   .videos-grid {
     grid-template-columns: 1fr;
   }
   
+  .video-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+  
+  .video-player-container {
+    grid-column: 1;
+  }
+  
+  .video-info-panel {
+    grid-column: 2;
+    border-left: 1px solid #e1e8ed;
+  }
+}
+
+/* 平板直向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
+  .videos-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .video-card {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+}
+
+/* 手機端通用 */
+@media (max-width: 768px) {
+  .videos-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
   .video-stats {
+    flex-direction: column;
     gap: 1rem;
+    text-align: center;
   }
   
   .control-buttons {
     flex-direction: column;
+    gap: 1rem;
   }
   
   .cache-btn {
     width: 100%;
+    padding: 1rem;
   }
   
   .video-header {
@@ -706,38 +823,50 @@ defineExpose({
     align-items: flex-start;
   }
   
+  .video-status {
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  
   .detail-row {
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.25rem;
+    gap: 0.3rem;
   }
   
   .detail-value {
     text-align: left;
+    word-break: break-all;
   }
   
   .video-actions {
     flex-direction: column;
+    gap: 0.8rem;
   }
   
   .action-btn {
     min-width: auto;
+    padding: 0.8rem;
   }
   
   .tech-features {
     grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.5rem;
   }
 }
 
-@media (max-width: 480px) {
-  .video-info {
-    padding: 1.5rem;
-  }
-  
+/* Samsung Galaxy A53 直向 */
+@media (max-width: 480px) and (orientation: portrait) {
+  .video-info,
   .cache-controls,
   .video-list,
   .tech-info {
-    padding: 1.5rem;
+    padding: 1.2rem;
+    margin-bottom: 1.5rem;
   }
   
   .video-player-container {
@@ -745,7 +874,283 @@ defineExpose({
   }
   
   .video-info-panel {
+    padding: 1.2rem;
+  }
+  
+  .video-stats {
+    gap: 0.8rem;
+  }
+  
+  .stat-item {
+    padding: 0.8rem;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.1);
+  }
+  
+  .cache-btn {
+    padding: 0.8rem 1rem;
+    font-size: 0.9rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.4rem;
+  }
+  
+  .video-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .status-badge {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.6rem;
+  }
+  
+  .action-btn {
+    padding: 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .feature-item {
+    padding: 0.8rem;
+  }
+  
+  .feature-icon {
+    font-size: 1.8rem;
+  }
+}
+
+/* Samsung Galaxy A53 橫向 */
+@media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
+  .video-info,
+  .cache-controls,
+  .video-list,
+  .tech-info {
     padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .video-player-container {
+    padding: 0.8rem;
+  }
+  
+  .video-info-panel {
+    padding: 1rem;
+  }
+  
+  .video-stats {
+    flex-direction: row;
+    justify-content: space-around;
+    gap: 1rem;
+  }
+  
+  .control-buttons {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+  
+  .video-header {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .detail-row {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .video-actions {
+    flex-direction: row;
+    gap: 0.6rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* iPhone SE2 直向 */
+@media (max-width: 375px) and (orientation: portrait) {
+  .video-info,
+  .cache-controls,
+  .video-list,
+  .tech-info {
+    padding: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  .video-player-container {
+    padding: 0.8rem;
+  }
+  
+  .video-info-panel {
+    padding: 1rem;
+  }
+  
+  .video-stats {
+    gap: 0.6rem;
+  }
+  
+  .stat-item {
+    padding: 0.6rem;
+    font-size: 0.9rem;
+  }
+  
+  .cache-btn {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.3rem;
+  }
+  
+  .video-header h4 {
+    font-size: 1rem;
+  }
+  
+  .status-badge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+  }
+  
+  .detail-row {
+    gap: 0.2rem;
+  }
+  
+  .detail-label {
+    font-size: 0.85rem;
+  }
+  
+  .detail-value {
+    font-size: 0.85rem;
+  }
+  
+  .action-btn {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .feature-item {
+    padding: 0.6rem;
+    gap: 0.8rem;
+  }
+  
+  .feature-icon {
+    font-size: 1.6rem;
+  }
+  
+  .feature-content h4 {
+    font-size: 0.95rem;
+  }
+  
+  .feature-content p {
+    font-size: 0.85rem;
+  }
+}
+
+/* iPhone SE2 橫向 */
+@media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
+  .video-info,
+  .cache-controls,
+  .video-list,
+  .tech-info {
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .video-player-container {
+    padding: 0.6rem;
+  }
+  
+  .video-info-panel {
+    padding: 0.8rem;
+  }
+  
+  .video-stats {
+    flex-direction: row;
+    gap: 0.8rem;
+  }
+  
+  .control-buttons {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+  }
+  
+  .cache-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .tech-features {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.8rem;
+  }
+}
+
+/* 超小螢幕 */
+@media (max-width: 320px) {
+  .video-info,
+  .cache-controls,
+  .video-list,
+  .tech-info {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .video-player-container {
+    padding: 0.6rem;
+  }
+  
+  .video-info-panel {
+    padding: 0.8rem;
+  }
+  
+  .video-stats {
+    gap: 0.5rem;
+  }
+  
+  .stat-item {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .cache-btn {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .video-header h4 {
+    font-size: 0.9rem;
+  }
+  
+  .status-badge {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+  }
+  
+  .action-btn {
+    padding: 0.4rem;
+    font-size: 0.75rem;
+  }
+  
+  .feature-item {
+    padding: 0.5rem;
+    gap: 0.6rem;
+  }
+  
+  .feature-icon {
+    font-size: 1.4rem;
   }
 }
 </style>

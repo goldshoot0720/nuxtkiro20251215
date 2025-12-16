@@ -8,7 +8,6 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-
     "upload-videos": "node scripts/upload-videos.js",
     "upload-videos-manual": "node scripts/upload-videos-manual.js",
     "check-blobs": "node scripts/check-blobs.js",

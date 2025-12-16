@@ -1,6 +1,6 @@
 <template>
   <div class="image-gallery-container">
-    <h1>本地圖片庫</h1>
+    <h1 class="page-brand-title">鋒兄本地圖片庫</h1>
     <div class="gallery-info">
       <p>瀏覽 public/images 資料夾中的所有圖片</p>
       <div class="gallery-stats">
@@ -20,20 +20,26 @@
           placeholder="搜尋圖片名稱..."
           class="search-input"
         >
-        <button @click="clearSearch" class="clear-btn" v-if="searchQuery">✕</button>
+        <button
+          v-if="searchQuery"
+          @click="clearSearch"
+          class="clear-btn"
+        >
+          ✕
+        </button>
       </div>
       
       <div class="view-controls">
-        <button 
-          @click="viewMode = 'grid'" 
+        <button
+          @click="viewMode = 'grid'"
           :class="{ active: viewMode === 'grid' }"
           class="view-btn"
           title="網格檢視"
         >
           🔲
         </button>
-        <button 
-          @click="viewMode = 'list'" 
+        <button
+          @click="viewMode = 'list'"
           :class="{ active: viewMode === 'list' }"
           class="view-btn"
           title="列表檢視"
@@ -97,15 +103,15 @@
             </div>
           </div>
           <div class="list-actions">
-            <button 
-              @click.stop="downloadImage(image)" 
+            <button
+              @click.stop="downloadImage(image)"
               class="action-btn download"
               title="下載圖片"
             >
               💾
             </button>
-            <button 
-              @click.stop="copyImageUrl(image)" 
+            <button
+              @click.stop="copyImageUrl(image)"
               class="action-btn copy"
               title="複製網址"
             >
@@ -128,7 +134,12 @@
       <div class="no-results-icon">🔍</div>
       <h3>沒有符合的結果</h3>
       <p>嘗試使用不同的關鍵字搜尋</p>
-      <button @click="clearSearch" class="clear-search-btn">清除搜尋</button>
+      <button
+        @click="clearSearch"
+        class="clear-search-btn"
+      >
+        清除搜尋
+      </button>
     </div>
 
     <!-- Lightbox -->
@@ -168,10 +179,16 @@
             <span>{{ currentImageIndex + 1 }} / {{ filteredImages.length }}</span>
           </div>
           <div class="lightbox-actions">
-            <button @click="downloadImage(currentLightboxImage)" class="lightbox-btn">
+            <button
+              @click="downloadImage(currentLightboxImage)"
+              class="lightbox-btn primary"
+            >
               下載圖片
             </button>
-            <button @click="copyImageUrl(currentLightboxImage)" class="lightbox-btn">
+            <button
+              @click="copyImageUrl(currentLightboxImage)"
+              class="lightbox-btn secondary"
+            >
               複製網址
             </button>
           </div>
@@ -640,21 +657,21 @@ defineExpose({
   transition: all 0.2s;
 }
 
-.lightbox-btn:first-child {
+.lightbox-btn.primary {
   background: #3498db;
   color: white;
 }
 
-.lightbox-btn:first-child:hover {
+.lightbox-btn.primary:hover {
   background: #2980b9;
 }
 
-.lightbox-btn:last-child {
+.lightbox-btn.secondary {
   background: #95a5a6;
   color: white;
 }
 
-.lightbox-btn:last-child:hover {
+.lightbox-btn.secondary:hover {
   background: #7f8c8d;
 }
 
@@ -669,12 +686,115 @@ defineExpose({
   }
 }
 
-/* 響應式設計 */
+/* ===== 響應式設計優化 ===== */
+
+/* 桌面端優化 */
+@media (min-width: 1200px) {
+  .image-gallery-container {
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 2rem;
+  }
+  
+  .image-wrapper {
+    height: 250px;
+  }
+  
+  .list-image-wrapper {
+    width: 100px;
+    height: 100px;
+  }
+  
+  .page-brand-title {
+    font-size: 2rem;
+  }
+  
+  .lightbox-content {
+    max-width: 85vw;
+    max-height: 85vh;
+  }
+  
+  .lightbox-image {
+    max-height: 75vh;
+  }
+}
+
+/* 平板端優化 - Redmi Pad SE 8.7 */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .image-gallery-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .image-wrapper {
+    height: 220px;
+  }
+  
+  .list-image-wrapper {
+    width: 90px;
+    height: 90px;
+  }
+  
+  .page-brand-title {
+    font-size: 1.8rem;
+  }
+  
+  .gallery-controls {
+    padding: 1.5rem 2rem;
+  }
+  
+  .search-input {
+    max-width: 500px;
+  }
+}
+
+/* 平板橫向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+  
+  .image-wrapper {
+    height: 180px;
+  }
+  
+  .image-list-item {
+    padding: 1rem;
+  }
+  
+  .list-image-wrapper {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* 平板直向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .image-wrapper {
+    height: 240px;
+  }
+}
+
+/* 手機端通用 */
 @media (max-width: 768px) {
   .gallery-controls {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
+    padding: 1.2rem;
   }
   
   .search-box {
@@ -687,26 +807,34 @@ defineExpose({
   
   .gallery-grid {
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 1rem;
+    gap: 1.2rem;
   }
   
   .image-wrapper {
-    height: 150px;
+    height: 160px;
   }
   
   .image-list-item {
     flex-direction: column;
     text-align: center;
+    padding: 1.2rem;
   }
   
   .list-image-wrapper {
     width: 100%;
-    height: 200px;
+    height: 180px;
     margin-right: 0;
     margin-bottom: 1rem;
   }
   
   .list-image-details {
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.8rem;
+  }
+  
+  .list-actions {
+    margin-top: 1rem;
     justify-content: center;
   }
   
@@ -716,7 +844,7 @@ defineExpose({
   }
   
   .lightbox-image {
-    max-height: 60vh;
+    max-height: 65vh;
   }
   
   .lightbox-nav {
@@ -732,21 +860,61 @@ defineExpose({
   
   .lightbox-actions {
     flex-direction: column;
+    gap: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.5rem;
   }
 }
 
-@media (max-width: 480px) {
+/* Samsung Galaxy A53 直向 */
+@media (max-width: 480px) and (orientation: portrait) {
+  .gallery-info,
+  .gallery-controls {
+    padding: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  
   .gallery-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
   }
   
   .image-wrapper {
-    height: 200px;
+    height: 140px;
+  }
+  
+  .image-list-item {
+    padding: 1rem;
+  }
+  
+  .list-image-wrapper {
+    height: 150px;
+  }
+  
+  .search-input {
+    padding: 0.6rem;
+    font-size: 0.95rem;
+  }
+  
+  .view-btn {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.9rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.4rem;
   }
   
   .gallery-stats {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.6rem;
+  }
+  
+  .stat-item {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
   }
   
   .lightbox-info {
@@ -759,6 +927,235 @@ defineExpose({
   
   .lightbox-nav.next {
     right: 0.5rem;
+  }
+  
+  .action-btn {
+    padding: 0.4rem;
+    font-size: 1.1rem;
+  }
+}
+
+/* Samsung Galaxy A53 橫向 */
+@media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
+  .gallery-info,
+  .gallery-controls {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 0.8rem;
+  }
+  
+  .image-wrapper {
+    height: 100px;
+  }
+  
+  .image-list-item {
+    flex-direction: row;
+    text-align: left;
+    padding: 0.8rem;
+  }
+  
+  .list-image-wrapper {
+    width: 80px;
+    height: 80px;
+    margin-right: 1rem;
+    margin-bottom: 0;
+  }
+  
+  .list-image-details {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  
+  .gallery-controls {
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  
+  .search-box {
+    max-width: 300px;
+  }
+  
+  .page-brand-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* iPhone SE2 直向 */
+@media (max-width: 375px) and (orientation: portrait) {
+  .gallery-info,
+  .gallery-controls {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: 1fr;
+    gap: 0.8rem;
+  }
+  
+  .image-wrapper {
+    height: 200px;
+  }
+  
+  .image-list-item {
+    padding: 0.8rem;
+  }
+  
+  .list-image-wrapper {
+    height: 120px;
+  }
+  
+  .search-input {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .view-btn {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.3rem;
+  }
+  
+  .gallery-stats {
+    gap: 0.4rem;
+  }
+  
+  .stat-item {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  
+  .list-image-name {
+    font-size: 0.95rem;
+  }
+  
+  .detail-item {
+    font-size: 0.8rem;
+  }
+  
+  .lightbox-info {
+    padding: 0.8rem;
+  }
+  
+  .lightbox-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .action-btn {
+    padding: 0.3rem;
+    font-size: 1rem;
+  }
+}
+
+/* iPhone SE2 橫向 */
+@media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
+  .gallery-info,
+  .gallery-controls {
+    padding: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 0.6rem;
+  }
+  
+  .image-wrapper {
+    height: 80px;
+  }
+  
+  .image-list-item {
+    flex-direction: row;
+    padding: 0.6rem;
+  }
+  
+  .list-image-wrapper {
+    width: 60px;
+    height: 60px;
+    margin-right: 0.8rem;
+  }
+  
+  .gallery-controls {
+    flex-direction: row;
+  }
+  
+  .search-box {
+    max-width: 250px;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .lightbox-image {
+    max-height: 50vh;
+  }
+}
+
+/* 超小螢幕 */
+@media (max-width: 320px) {
+  .gallery-info,
+  .gallery-controls {
+    padding: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .gallery-grid {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+  
+  .image-wrapper {
+    height: 160px;
+  }
+  
+  .image-list-item {
+    padding: 0.6rem;
+  }
+  
+  .list-image-wrapper {
+    height: 100px;
+  }
+  
+  .search-input {
+    padding: 0.4rem;
+    font-size: 0.85rem;
+  }
+  
+  .view-btn {
+    padding: 0.4rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .stat-item {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .lightbox-info {
+    padding: 0.6rem;
+  }
+  
+  .lightbox-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .action-btn {
+    padding: 0.25rem;
+    font-size: 0.9rem;
   }
 }
 

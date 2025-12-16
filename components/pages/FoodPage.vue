@@ -1,7 +1,7 @@
 <template>
   <div class="food-management">
     <div class="user-info">
-      <h3>食物庫存管理系統</h3>
+      <h3 class="page-brand-title">鋒兄食物庫存管理系統</h3>
       <p>管理您的食物庫存，追蹤購買記錄</p>
     </div>
 
@@ -74,17 +74,16 @@
           </div>
         </div>
         <div class="form-actions">
-          <button 
+          <button
             @click="handleSubmit"
             class="auth-btn primary"
             :disabled="foodLoading || !newFood.name"
           >
             {{ editingFood ? '更新食物' : '新增食物' }}
           </button>
-          <button 
+          <button
             @click="resetFoodForm"
             class="auth-btn secondary"
-            type="button"
           >
             {{ editingFood ? '取消編輯' : '清空' }}
           </button>
@@ -119,14 +118,14 @@
           <div class="card-header">
             <h4>{{ food.name }}</h4>
             <div class="card-actions">
-              <button 
+              <button
                 @click="editFood(food)"
                 class="action-btn edit"
                 title="編輯"
               >
                 ✏️
               </button>
-              <button 
+              <button
                 @click="deleteFood(food.id)"
                 class="action-btn delete"
                 title="刪除"
@@ -516,9 +515,95 @@ defineExpose({
   }
 }
 
+/* ===== 響應式設計優化 ===== */
+
+/* 桌面端優化 */
+@media (min-width: 1200px) {
+  .food-management {
+    max-width: 1200px;
+  }
+  
+  .foods-grid {
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 2rem;
+  }
+  
+  .food-card {
+    padding: 2rem;
+  }
+  
+  .food-photo {
+    width: 80px;
+    height: 80px;
+  }
+  
+  .page-brand-title {
+    font-size: 2rem;
+  }
+}
+
+/* 平板端優化 - Redmi Pad SE 8.7 */
+@media (min-width: 769px) and (max-width: 1199px) {
+  .food-management {
+    max-width: 900px;
+  }
+  
+  .foods-grid {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+  }
+  
+  .form-row {
+    gap: 1.2rem;
+  }
+  
+  .food-card {
+    padding: 1.8rem;
+  }
+  
+  .food-photo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .page-brand-title {
+    font-size: 1.8rem;
+  }
+}
+
+/* 平板橫向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
+  .foods-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  .main-info-row {
+    flex-direction: row;
+    align-items: center;
+  }
+}
+
+/* 平板直向模式 */
+@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
+  .foods-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .food-card {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+/* 手機端通用 */
 @media (max-width: 768px) {
   .form-row {
     grid-template-columns: 1fr;
+    gap: 1rem;
   }
   
   .list-header {
@@ -529,26 +614,282 @@ defineExpose({
   
   .summary {
     align-items: flex-start;
+    width: 100%;
   }
   
   .foods-grid {
     grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+  
+  .food-card {
+    padding: 1.5rem;
   }
   
   .main-info-row {
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+  
+  .photo-section {
+    align-self: center;
+  }
+  
+  .food-photo {
+    width: 80px;
+    height: 80px;
   }
   
   .key-info-section {
+    width: 100%;
     flex-direction: row;
     justify-content: space-between;
   }
   
   .key-info-item {
     flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+    text-align: center;
+  }
+  
+  .page-brand-title {
+    font-size: 1.5rem;
+  }
+}
+
+/* Samsung Galaxy A53 直向 */
+@media (max-width: 480px) and (orientation: portrait) {
+  .food-management {
+    padding: 0;
+  }
+  
+  .user-info,
+  .add-food,
+  .food-list {
+    margin-bottom: 1.5rem;
+    padding: 1.2rem;
+  }
+  
+  .food-card {
+    padding: 1.2rem;
+  }
+  
+  .food-photo {
+    width: 70px;
+    height: 70px;
+  }
+  
+  .form-group input {
+    padding: 0.6rem;
+    font-size: 0.95rem;
+  }
+  
+  .auth-btn {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.4rem;
+  }
+  
+  .card-header h4 {
+    font-size: 1.1rem;
+  }
+  
+  .key-info-item {
+    font-size: 0.9rem;
+  }
+  
+  .action-btn {
+    padding: 0.3rem;
+    font-size: 1.1rem;
+  }
+}
+
+/* Samsung Galaxy A53 橫向 */
+@media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
+  .user-info,
+  .add-food,
+  .food-list {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .food-card {
+    padding: 1rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+  }
+  
+  .main-info-row {
+    flex-direction: row;
+    gap: 1rem;
+  }
+  
+  .food-photo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .key-info-section {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.2rem;
+  }
+}
+
+/* iPhone SE2 直向 */
+@media (max-width: 375px) and (orientation: portrait) {
+  .user-info,
+  .add-food,
+  .food-list {
+    padding: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  
+  .food-card {
+    padding: 1rem;
+  }
+  
+  .food-photo {
+    width: 60px;
+    height: 60px;
+  }
+  
+  .form-group input {
+    padding: 0.5rem;
+    font-size: 0.9rem;
+  }
+  
+  .form-group label {
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .auth-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.3rem;
+  }
+  
+  .card-header h4 {
+    font-size: 1rem;
+  }
+  
+  .key-info-item {
+    font-size: 0.85rem;
+    gap: 0.2rem;
+  }
+  
+  .label {
+    font-size: 0.8rem;
+  }
+  
+  .action-btn {
+    padding: 0.25rem;
+    font-size: 1rem;
+  }
+}
+
+/* iPhone SE2 橫向 */
+@media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
+  .user-info,
+  .add-food,
+  .food-list {
+    padding: 0.8rem;
+    margin-bottom: 0.8rem;
+  }
+  
+  .food-card {
+    padding: 0.8rem;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+  }
+  
+  .main-info-row {
+    flex-direction: row;
+    gap: 0.8rem;
+  }
+  
+  .food-photo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .key-info-section {
+    flex-direction: row;
+    gap: 1rem;
+  }
+  
+  .key-info-item {
+    flex-direction: column;
     align-items: flex-start;
     gap: 0.2rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+}
+
+/* 超小螢幕 */
+@media (max-width: 320px) {
+  .user-info,
+  .add-food,
+  .food-list {
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  
+  .food-card {
+    padding: 0.8rem;
+  }
+  
+  .food-photo {
+    width: 50px;
+    height: 50px;
+  }
+  
+  .form-group input {
+    padding: 0.4rem;
+    font-size: 0.85rem;
+  }
+  
+  .auth-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+  
+  .page-brand-title {
+    font-size: 1.1rem;
+  }
+  
+  .card-header h4 {
+    font-size: 0.95rem;
+  }
+  
+  .key-info-item {
+    font-size: 0.8rem;
+  }
+  
+  .action-btn {
+    padding: 0.2rem;
+    font-size: 0.9rem;
   }
 }
 </style>
