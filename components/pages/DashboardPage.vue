@@ -35,6 +35,15 @@
             <h3>訂閱數量</h3>
             <div class="stat-number">{{ subscriptionsCount }}</div>
             <div class="stat-label">項目</div>
+            <!-- 到期提醒 -->
+            <div v-if="alertStats.subscriptions.total > 0" class="alert-summary">
+              <span v-if="alertStats.subscriptions.critical > 0" class="alert-critical">
+                {{ alertStats.subscriptions.critical }} 項 3天內到期
+              </span>
+              <span v-if="alertStats.subscriptions.warning > 0" class="alert-warning">
+                {{ alertStats.subscriptions.warning }} 項 7天內到期
+              </span>
+            </div>
           </div>
           <div class="stat-trend">
             <span class="trend-icon">📈</span>
@@ -49,6 +58,15 @@
             <h3>食物庫存</h3>
             <div class="stat-number">{{ foodsCount }}</div>
             <div class="stat-label">項目</div>
+            <!-- 到期提醒 -->
+            <div v-if="alertStats.foods.total > 0" class="alert-summary">
+              <span v-if="alertStats.foods.critical > 0" class="alert-critical">
+                {{ alertStats.foods.critical }} 項 7天內到期
+              </span>
+              <span v-if="alertStats.foods.warning > 0" class="alert-warning">
+                {{ alertStats.foods.warning }} 項 30天內到期
+              </span>
+            </div>
           </div>
           <div class="stat-trend">
             <span class="trend-icon">📊</span>
@@ -130,6 +148,99 @@
       </div>
     </div>
 
+    <!-- 到期提醒區域 -->
+    <div v-if="alertStats.subscriptions.total > 0 || alertStats.foods.total > 0" class="alerts-section">
+      <h2>⚠️ 到期提醒</h2>
+      
+      <!-- 訂閱到期提醒 -->
+      <div v-if="alertStats.subscriptions.total > 0" class="alert-category">
+        <h3>💳 訂閱服務到期</h3>
+        
+        <!-- 3天內到期 -->
+        <div v-if="subscriptionAlerts.critical.length > 0" class="alert-group critical">
+          <h4>🚨 緊急 (3天內)</h4>
+          <div class="alert-items">
+            <div 
+              v-for="item in subscriptionAlerts.critical" 
+              :key="item.id"
+              class="alert-item critical"
+            >
+              <div class="alert-icon">💳</div>
+              <div class="alert-content">
+                <div class="alert-name">{{ item.name }}</div>
+                <div class="alert-time">{{ formatDaysRemaining(item.daysRemaining) }}</div>
+              </div>
+              <div class="alert-badge critical">{{ item.daysRemaining }}天</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 7天內到期 -->
+        <div v-if="subscriptionAlerts.warning.length > 0" class="alert-group warning">
+          <h4>⚠️ 注意 (7天內)</h4>
+          <div class="alert-items">
+            <div 
+              v-for="item in subscriptionAlerts.warning" 
+              :key="item.id"
+              class="alert-item warning"
+            >
+              <div class="alert-icon">💳</div>
+              <div class="alert-content">
+                <div class="alert-name">{{ item.name }}</div>
+                <div class="alert-time">{{ formatDaysRemaining(item.daysRemaining) }}</div>
+              </div>
+              <div class="alert-badge warning">{{ item.daysRemaining }}天</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 食品到期提醒 -->
+      <div v-if="alertStats.foods.total > 0" class="alert-category">
+        <h3>🛒 食品到期</h3>
+        
+        <!-- 7天內到期 -->
+        <div v-if="foodAlerts.critical.length > 0" class="alert-group critical">
+          <h4>🚨 緊急 (7天內)</h4>
+          <div class="alert-items">
+            <div 
+              v-for="item in foodAlerts.critical" 
+              :key="item.id"
+              class="alert-item critical"
+            >
+              <div class="alert-icon">🛒</div>
+              <div class="alert-content">
+                <div class="alert-name">{{ item.name }}</div>
+                <div class="alert-time">{{ formatDaysRemaining(item.daysRemaining) }}</div>
+                <div v-if="item.amount" class="alert-amount">數量: {{ item.amount }}</div>
+              </div>
+              <div class="alert-badge critical">{{ item.daysRemaining }}天</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 30天內到期 -->
+        <div v-if="foodAlerts.warning.length > 0" class="alert-group warning">
+          <h4>⚠️ 注意 (30天內)</h4>
+          <div class="alert-items">
+            <div 
+              v-for="item in foodAlerts.warning" 
+              :key="item.id"
+              class="alert-item warning"
+            >
+              <div class="alert-icon">🛒</div>
+              <div class="alert-content">
+                <div class="alert-name">{{ item.name }}</div>
+                <div class="alert-time">{{ formatDaysRemaining(item.daysRemaining) }}</div>
+                <div v-if="item.amount" class="alert-amount">數量: {{ item.amount }}</div>
+              </div>
+              <div class="alert-badge warning">{{ item.daysRemaining }}天</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 額外內容區域確保頁面有足夠長度 -->
     <div class="additional-content">
       <div class="info-section">
@@ -185,6 +296,8 @@
 </template>
 
 <script setup>
+import { useDashboard } from '../composables/useDashboard'
+
 defineProps({
   subscriptionsCount: {
     type: Number,
@@ -201,6 +314,15 @@ defineProps({
 })
 
 defineEmits(['navigate'])
+
+// 使用儀表板到期提醒功能
+const {
+  subscriptionAlerts,
+  foodAlerts,
+  alertStats,
+  formatDaysRemaining,
+  getPriorityColor
+} = useDashboard()
 </script>
 
 <style scoped>
@@ -761,5 +883,245 @@ defineEmits(['navigate'])
   }
 }
 
+/* 到期提醒樣式 */
+.alert-summary {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.alert-critical {
+  color: #e74c3c;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(231, 76, 60, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid #e74c3c;
+}
+
+.alert-warning {
+  color: #f39c12;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(243, 156, 18, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid #f39c12;
+}
+
+/* 到期提醒區域 */
+.alerts-section {
+  margin-top: 2rem;
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  padding: 2.5rem;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+  border: 1px solid var(--border-color);
+}
+
+.alerts-section h2 {
+  color: var(--text-primary);
+  margin-bottom: 2rem;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.alert-category {
+  margin-bottom: 2rem;
+}
+
+.alert-category:last-child {
+  margin-bottom: 0;
+}
+
+.alert-category h3 {
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  font-size: 1.3rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.alert-group {
+  margin-bottom: 1.5rem;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.alert-group.critical {
+  border: 2px solid #e74c3c;
+  background: rgba(231, 76, 60, 0.02);
+}
+
+.alert-group.warning {
+  border: 2px solid #f39c12;
+  background: rgba(243, 156, 18, 0.02);
+}
+
+.alert-group h4 {
+  margin: 0;
+  padding: 1rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+}
+
+.alert-group.critical h4 {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+}
+
+.alert-group.warning h4 {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+}
+
+.alert-items {
+  padding: 0;
+}
+
+.alert-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+  transition: all 0.3s ease;
+  background: var(--bg-secondary);
+}
+
+.alert-item:last-child {
+  border-bottom: none;
+}
+
+.alert-item:hover {
+  background: var(--bg-tertiary);
+  transform: translateX(4px);
+}
+
+.alert-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.alert-item.critical .alert-icon {
+  background: rgba(231, 76, 60, 0.1);
+}
+
+.alert-item.warning .alert-icon {
+  background: rgba(243, 156, 18, 0.1);
+}
+
+.alert-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.alert-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.alert-time {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  margin-bottom: 0.25rem;
+}
+
+.alert-amount {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.alert-badge {
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+  min-width: 50px;
+  text-align: center;
+}
+
+.alert-badge.critical {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+  box-shadow: 0 2px 8px rgba(231, 76, 60, 0.3);
+}
+
+.alert-badge.warning {
+  background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+  box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+}
+
+/* 到期提醒響應式設計 */
+@media (max-width: 768px) {
+  .alerts-section {
+    padding: 2rem 1.5rem;
+  }
+  
+  .alert-item {
+    padding: 0.8rem 1rem;
+    gap: 0.8rem;
+  }
+  
+  .alert-icon {
+    width: 35px;
+    height: 35px;
+    font-size: 1.3rem;
+  }
+  
+  .alert-name {
+    font-size: 0.95rem;
+  }
+  
+  .alert-time {
+    font-size: 0.85rem;
+  }
+  
+  .alert-badge {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    min-width: 45px;
+  }
+  
+  .alert-summary {
+    gap: 0.2rem;
+  }
+  
+  .alert-critical,
+  .alert-warning {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .alerts-section {
+    padding: 1.5rem 1rem;
+  }
+  
+  .alert-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.6rem;
+    text-align: left;
+  }
+  
+  .alert-badge {
+    align-self: flex-end;
+  }
+}
 
 </style>

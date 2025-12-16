@@ -2582,6 +2582,139 @@ onUnmounted(() => {
   color: #cbd5e1 !important;
 }
 
+/* 暗黑模式下的延遲載入和錯誤處理 */
+:global(.dark) .video-lazy-preview {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+}
+
+:global(.dark) .preview-overlay {
+  background: rgba(0, 0, 0, 0.8) !important;
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .preview-info h4 {
+  color: #ffffff !important;
+}
+
+:global(.dark) .preview-size,
+:global(.dark) .preview-hint {
+  color: #cbd5e1 !important;
+}
+
+:global(.dark) .video-error-overlay {
+  background: rgba(30, 41, 59, 0.95) !important;
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .error-content h4 {
+  color: #f87171 !important;
+}
+
+:global(.dark) .error-message {
+  color: #cbd5e1 !important;
+}
+
+:global(.dark) .error-details {
+  background: rgba(248, 113, 113, 0.1) !important;
+  border-color: rgba(248, 113, 113, 0.3) !important;
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .progress-bar {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+:global(.dark) .progress-text {
+  color: #cbd5e1 !important;
+}
+
+:global(.dark) .blob-status-notification {
+  background: #1e293b !important;
+  border: 1px solid #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .status-message p {
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .status-message small {
+  color: #94a3b8 !important;
+}
+
+:global(.dark) .status-close {
+  color: #94a3b8 !important;
+}
+
+:global(.dark) .status-close:hover {
+  color: #cbd5e1 !important;
+}
+
+/* 暗黑模式下的到期提醒樣式 */
+:global(.dark) .alert-summary .alert-critical {
+  background: rgba(248, 113, 113, 0.2) !important;
+  color: #f87171 !important;
+  border-left-color: #f87171 !important;
+}
+
+:global(.dark) .alert-summary .alert-warning {
+  background: rgba(251, 191, 36, 0.2) !important;
+  color: #fbbf24 !important;
+  border-left-color: #fbbf24 !important;
+}
+
+:global(.dark) .alerts-section {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 100%) !important;
+  border: 1px solid #475569 !important;
+}
+
+:global(.dark) .alerts-section h2 {
+  color: #ffffff !important;
+}
+
+:global(.dark) .alert-category h3 {
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .alert-group.critical {
+  border-color: #f87171 !important;
+  background: rgba(248, 113, 113, 0.05) !important;
+}
+
+:global(.dark) .alert-group.warning {
+  border-color: #fbbf24 !important;
+  background: rgba(251, 191, 36, 0.05) !important;
+}
+
+:global(.dark) .alert-item {
+  background: #334155 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+:global(.dark) .alert-item:hover {
+  background: #475569 !important;
+}
+
+:global(.dark) .alert-item.critical .alert-icon {
+  background: rgba(248, 113, 113, 0.2) !important;
+}
+
+:global(.dark) .alert-item.warning .alert-icon {
+  background: rgba(251, 191, 36, 0.2) !important;
+}
+
+:global(.dark) .alert-name {
+  color: #f1f5f9 !important;
+}
+
+:global(.dark) .alert-time {
+  color: #cbd5e1 !important;
+}
+
+:global(.dark) .alert-amount {
+  color: #94a3b8 !important;
+}
+
 :global(.dark) .status-badge.cached {
   background: rgba(52, 211, 153, 0.2) !important;
   color: #34d399 !important;

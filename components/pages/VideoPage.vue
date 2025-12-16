@@ -89,7 +89,32 @@
           </div>
           
           <div class="video-player-container">
+            <!-- 延遲載入預覽 -->
+            <div 
+              v-if="!video.loaded && !video.loading && !video.error"
+              class="video-lazy-preview"
+              @click="loadVideo(video.blobKey)"
+            >
+              <div class="lazy-preview-content">
+                <div class="preview-poster" v-if="video.poster">
+                  <img :src="video.poster" :alt="video.displayName" class="poster-image">
+                </div>
+                <div class="preview-overlay">
+                  <div class="play-button">
+                    <div class="play-icon">▶️</div>
+                  </div>
+                  <div class="preview-info">
+                    <h4>{{ video.displayName }}</h4>
+                    <p class="preview-size">{{ formatFileSize(video.fileSize) }}</p>
+                    <p class="preview-hint">點擊載入影片</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 影片播放器 -->
             <video 
+              v-if="video.loaded"
               :ref="'video-' + video.blobKey"
               class="video-player"
               controls
@@ -106,19 +131,60 @@
             <!-- 載入中覆蓋層 -->
             <div v-if="video.loading" class="video-loading-overlay">
               <div class="loading-spinner"></div>
-              <p>載入中...</p>
+              <p>正在從 Netlify Blobs 載入影片...</p>
+              <div class="loading-progress">
+                <div class="progress-bar">
+                  <div class="progress-fill" :style="{ width: video.loadProgress + '%' }"></div>
+                </div>
+                <span class="progress-text">{{ video.loadProgress }}%</span>
+              </div>
             </div>
             
-            <!-- 錯誤覆蓋層 -->
+            <!-- Netlify Blobs 錯誤覆蓋層 -->
             <div v-if="video.error" class="video-error-overlay">
               <div class="error-icon">⚠️</div>
-              <p>載入失敗</p>
-              <button
-                @click="retryVideo(video.blobKey)"
-                class="retry-btn"
-              >
-                🔄 重試
-              </button>
+              <div class="error-content">
+                <h4>Netlify Blobs 載入失敗</h4>
+                <p class="error-message">{{ getErrorMessage(video.errorType) }}</p>
+                <div class="error-details" v-if="video.errorDetails">
+                  <p><strong>錯誤詳情:</strong> {{ video.errorDetails }}</p>
+                  <p><strong>影片檔案:</strong> {{ video.blobKey }}</p>
+                  <p><strong>Blob 狀態:</strong> {{ video.blobExists ? '已上傳' : '未上傳' }}</p>
+                </div>
+                <div class="error-actions">
+                  <button
+                    @click="retryVideo(video.blobKey)"
+                    class="retry-btn primary"
+                  >
+                    🔄 重新載入
+                  </button>
+                  <button
+                    @click="checkSingleBlobStatus(video.blobKey)"
+                    class="retry-btn secondary"
+                  >
+                    🔍 檢查 Blob 狀態
+                  </button>
+                  <button
+                    v-if="!video.blobExists"
+                    @click="showUploadInstructions(video.blobKey)"
+                    class="retry-btn info"
+                  >
+                    📤 查看上傳說明
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Netlify Blobs 狀態提示 -->
+            <div v-if="video.blobStatus" class="blob-status-notification" :class="video.blobStatus.type">
+              <div class="status-icon">
+                {{ video.blobStatus.type === 'success' ? '✅' : video.blobStatus.type === 'warning' ? '⚠️' : '❌' }}
+              </div>
+              <div class="status-message">
+                <p>{{ video.blobStatus.message }}</p>
+                <small v-if="video.blobStatus.details">{{ video.blobStatus.details }}</small>
+              </div>
+              <button @click="clearBlobStatus(video.blobKey)" class="status-close">✕</button>
             </div>
           </div>
           
@@ -180,8 +246,8 @@
         <div class="feature-item">
           <div class="feature-icon">⚡</div>
           <div class="feature-content">
-            <h4>串流載入</h4>
-            <p>影片採用串流載入，無需等待完整下載即可開始播放</p>
+            <h4>延遲載入</h4>
+            <p>影片採用延遲載入技術，點擊時才從 Netlify Blobs 載入，節省頻寬</p>
           </div>
         </div>
         <div class="feature-item">
@@ -189,6 +255,13 @@
           <div class="feature-content">
             <h4>安全存儲</h4>
             <p>所有影片存儲在 Netlify Blobs 雲端，透過 HTTPS 安全傳輸</p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">🛠️</div>
+          <div class="feature-content">
+            <h4>智能錯誤處理</h4>
+            <p>自動檢測 Netlify Blobs 狀態，提供詳細錯誤信息和解決方案</p>
           </div>
         </div>
         <div class="feature-item">
@@ -226,7 +299,12 @@ const {
   clearAllCache,
   checkCacheStatus,
   checkBlobsStatus,
-  downloadVideo
+  downloadVideo,
+  loadVideo,
+  checkSingleBlobStatus,
+  showUploadInstructions,
+  clearBlobStatus,
+  getErrorMessage
 } = useVideos()
 
 const { formatFileSize, formatCacheSize, formatDate } = useFormatters()
@@ -507,6 +585,98 @@ defineExpose({
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+/* 延遲載入預覽 */
+.video-lazy-preview {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.video-lazy-preview:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.lazy-preview-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-poster {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.poster-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.preview-overlay {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.play-button {
+  margin-bottom: 1rem;
+}
+
+.play-icon {
+  font-size: 3rem;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+  transition: all 0.3s ease;
+}
+
+.video-lazy-preview:hover .play-icon {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+.preview-info h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.preview-size {
+  margin: 0 0 0.5rem 0;
+  opacity: 0.8;
+  font-size: 0.9rem;
+}
+
+.preview-hint {
+  margin: 0;
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
 .video-loading-overlay,
 .video-error-overlay {
   position: absolute;
@@ -538,6 +708,34 @@ defineExpose({
   100% { transform: rotate(360deg); }
 }
 
+/* 載入進度條 */
+.loading-progress {
+  width: 100%;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.progress-bar {
+  width: 200px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 0 auto 0.5rem;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #1d4ed8 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
 .error-icon {
   font-size: 3rem;
   margin-bottom: 1rem;
@@ -555,6 +753,156 @@ defineExpose({
 
 .retry-btn:hover {
   background: #2980b9;
+}
+
+/* 錯誤內容樣式 */
+.error-content {
+  text-align: center;
+}
+
+.error-content h4 {
+  margin: 0 0 1rem 0;
+  color: #e74c3c;
+  font-size: 1.2rem;
+}
+
+.error-message {
+  margin: 0 0 1rem 0;
+  font-size: 1rem;
+  color: #666;
+}
+
+.error-details {
+  background: rgba(231, 76, 60, 0.1);
+  border: 1px solid rgba(231, 76, 60, 0.3);
+  border-radius: 6px;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: left;
+  font-size: 0.9rem;
+}
+
+.error-details p {
+  margin: 0 0 0.5rem 0;
+}
+
+.error-details p:last-child {
+  margin-bottom: 0;
+}
+
+.error-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1.5rem;
+}
+
+.retry-btn.primary {
+  background: #3498db;
+  color: white;
+}
+
+.retry-btn.primary:hover {
+  background: #2980b9;
+}
+
+.retry-btn.secondary {
+  background: #95a5a6;
+  color: white;
+}
+
+.retry-btn.secondary:hover {
+  background: #7f8c8d;
+}
+
+.retry-btn.info {
+  background: #f39c12;
+  color: white;
+}
+
+.retry-btn.info:hover {
+  background: #e67e22;
+}
+
+/* Blob 狀態通知 */
+.blob-status-notification {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  z-index: 10;
+  animation: slideInDown 0.3s ease;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.blob-status-notification.success {
+  border-left: 4px solid #27ae60;
+}
+
+.blob-status-notification.warning {
+  border-left: 4px solid #f39c12;
+}
+
+.blob-status-notification.error {
+  border-left: 4px solid #e74c3c;
+}
+
+.blob-status-notification.info {
+  border-left: 4px solid #3498db;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.status-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-message p {
+  margin: 0 0 0.25rem 0;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.status-message small {
+  color: #666;
+  font-size: 0.85rem;
+  white-space: pre-line;
+}
+
+.status-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem;
+  color: #999;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.status-close:hover {
+  color: #666;
 }
 
 .video-info-panel {

@@ -12,10 +12,15 @@ export const useVideos = () => {
       uploadedAt: '2025-12-16',
       cached: false,
       loading: false,
+      loaded: false, // 新增：是否已載入
       error: false,
+      errorType: null, // 新增：錯誤類型
+      errorDetails: null, // 新增：錯誤詳情
       caching: false,
       poster: null,
-      blobExists: false
+      blobExists: false,
+      loadProgress: 0, // 新增：載入進度
+      blobStatus: null // 新增：Blob 狀態提示
     },
     {
       blobKey: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4',
@@ -24,10 +29,15 @@ export const useVideos = () => {
       uploadedAt: '2025-12-16',
       cached: false,
       loading: false,
+      loaded: false, // 新增：是否已載入
       error: false,
+      errorType: null, // 新增：錯誤類型
+      errorDetails: null, // 新增：錯誤詳情
       caching: false,
       poster: null,
-      blobExists: false
+      blobExists: false,
+      loadProgress: 0, // 新增：載入進度
+      blobStatus: null // 新增：Blob 狀態提示
     }
   ])
 
@@ -73,23 +83,97 @@ export const useVideos = () => {
     if (video) {
       video.loading = false
       video.error = true
+      video.loadProgress = 0
+      
+      // 分析錯誤類型
+      const target = event.target
+      const networkState = target?.networkState
+      const error = target?.error
+      
+      if (networkState === 3) { // NETWORK_NO_SOURCE
+        video.errorType = 'no_source'
+        video.errorDetails = 'Netlify Blobs 中找不到此影片檔案'
+      } else if (error?.code === 4) { // MEDIA_ELEMENT_ERROR_SRC_NOT_SUPPORTED
+        video.errorType = 'unsupported'
+        video.errorDetails = '影片格式不支援或檔案損壞'
+      } else if (error?.code === 2) { // MEDIA_ELEMENT_ERROR_NETWORK
+        video.errorType = 'network'
+        video.errorDetails = '網路連線問題，無法從 Netlify Blobs 載入'
+      } else if (error?.code === 3) { // MEDIA_ELEMENT_ERROR_DECODE
+        video.errorType = 'decode'
+        video.errorDetails = '影片解碼失敗，檔案可能損壞'
+      } else {
+        video.errorType = 'unknown'
+        video.errorDetails = '未知錯誤，請檢查 Netlify Blobs 狀態'
+      }
     }
     console.error(`影片載入失敗 (${blobKey}):`, event)
   }
 
+  // 延遲載入影片
+  const loadVideo = async (blobKey) => {
+    const video = videoList.value.find(v => v.blobKey === blobKey)
+    if (!video || video.loaded || video.loading) return
+    
+    video.loading = true
+    video.error = false
+    video.errorType = null
+    video.errorDetails = null
+    video.loadProgress = 0
+    
+    try {
+      // 先檢查 Blob 是否存在
+      const headResponse = await fetch(`/api/blobs/${blobKey}`, { method: 'HEAD' })
+      
+      if (!headResponse.ok) {
+        throw new Error(`Netlify Blobs 中找不到影片檔案 (HTTP ${headResponse.status})`)
+      }
+      
+      video.blobExists = true
+      video.loaded = true
+      video.loading = false
+      video.loadProgress = 100
+      
+      // 顯示成功狀態
+      setBlobStatus(blobKey, 'success', '影片載入成功', '已從 Netlify Blobs 載入')
+      
+    } catch (error) {
+      video.loading = false
+      video.error = true
+      video.errorType = 'network'
+      video.errorDetails = error.message
+      video.blobExists = false
+      
+      // 顯示錯誤狀態
+      setBlobStatus(blobKey, 'error', 'Netlify Blobs 載入失敗', error.message)
+      
+      console.error(`載入影片失敗 (${blobKey}):`, error)
+    }
+  }
+
   // 重試載入影片
-  const retryVideo = (blobKey) => {
+  const retryVideo = async (blobKey) => {
     const video = videoList.value.find(v => v.blobKey === blobKey)
     if (video) {
       video.error = false
-      video.loading = true
+      video.errorType = null
+      video.errorDetails = null
+      video.loadProgress = 0
       
-      setTimeout(() => {
-        const videoEl = document.querySelector(`[ref="video-${blobKey}"]`)
-        if (videoEl) {
-          videoEl.load()
-        }
-      }, 100)
+      // 如果影片還沒載入，使用延遲載入
+      if (!video.loaded) {
+        await loadVideo(blobKey)
+      } else {
+        // 如果已載入，重新載入影片元素
+        video.loading = true
+        
+        setTimeout(() => {
+          const videoEl = document.querySelector(`[ref="video-${blobKey}"]`)
+          if (videoEl) {
+            videoEl.load()
+          }
+        }, 100)
+      }
     }
   }
 
@@ -290,6 +374,81 @@ export const useVideos = () => {
     }
   }
 
+  // 檢查單個 Blob 狀態
+  const checkSingleBlobStatus = async (blobKey) => {
+    const video = videoList.value.find(v => v.blobKey === blobKey)
+    if (!video) return
+    
+    setBlobStatus(blobKey, 'info', '正在檢查 Netlify Blobs 狀態...', '')
+    
+    try {
+      const response = await fetch(`/api/blobs/${blobKey}`, { method: 'HEAD' })
+      
+      if (response.ok) {
+        video.blobExists = true
+        video.error = false
+        setBlobStatus(blobKey, 'success', 'Blob 檢查完成', '影片存在於 Netlify Blobs')
+      } else {
+        video.blobExists = false
+        setBlobStatus(blobKey, 'error', 'Blob 不存在', `HTTP ${response.status} - 請先上傳影片到 Netlify Blobs`)
+      }
+    } catch (error) {
+      video.blobExists = false
+      setBlobStatus(blobKey, 'error', '檢查失敗', `無法連接到 Netlify Blobs: ${error.message}`)
+    }
+  }
+
+  // 顯示上傳說明
+  const showUploadInstructions = (blobKey) => {
+    const video = videoList.value.find(v => v.blobKey === blobKey)
+    if (!video) return
+    
+    const instructions = `
+上傳 "${video.displayName}" 到 Netlify Blobs:
+
+1. 確保影片檔案存在於 public/videos/ 資料夾
+2. 使用 Netlify CLI 上傳:
+   netlify blobs:set videos "${blobKey}" -i "./public/videos/${blobKey}"
+3. 或執行批次上傳: npm run upload-videos
+4. 上傳完成後點擊 "🔍 檢查 Blob 狀態"
+    `.trim()
+    
+    setBlobStatus(blobKey, 'info', '上傳說明', instructions)
+  }
+
+  // 設置 Blob 狀態提示
+  const setBlobStatus = (blobKey, type, message, details) => {
+    const video = videoList.value.find(v => v.blobKey === blobKey)
+    if (video) {
+      video.blobStatus = {
+        type, // 'success', 'warning', 'error', 'info'
+        message,
+        details,
+        timestamp: Date.now()
+      }
+    }
+  }
+
+  // 清除 Blob 狀態提示
+  const clearBlobStatus = (blobKey) => {
+    const video = videoList.value.find(v => v.blobKey === blobKey)
+    if (video) {
+      video.blobStatus = null
+    }
+  }
+
+  // 取得錯誤訊息
+  const getErrorMessage = (errorType) => {
+    const messages = {
+      'no_source': '影片檔案不存在於 Netlify Blobs',
+      'unsupported': '影片格式不支援或檔案損壞',
+      'network': '網路連線問題，無法載入影片',
+      'decode': '影片解碼失敗，檔案可能損壞',
+      'unknown': '未知錯誤，請檢查 Netlify Blobs 狀態'
+    }
+    return messages[errorType] || messages.unknown
+  }
+
   // 顯示快取訊息
   const showCacheMessage = (message, type = 'info') => {
     cacheMessage.value = message
@@ -320,6 +479,11 @@ export const useVideos = () => {
     checkCacheStatus,
     checkBlobsStatus,
     downloadVideo,
-    showCacheMessage
+    showCacheMessage,
+    loadVideo,
+    checkSingleBlobStatus,
+    showUploadInstructions,
+    clearBlobStatus,
+    getErrorMessage
   }
 }
