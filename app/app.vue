@@ -478,10 +478,25 @@
               </div>
             </div>
 
+            <!-- Netlify Blobs 上傳指南 -->
+            <div class="upload-guide" v-if="videoList.some(v => !v.blobExists)">
+              <h3>📤 影片上傳指南</h3>
+              <p>部分影片尚未上傳到 Netlify Blobs，請按照以下步驟上傳：</p>
+              <ol>
+                <li>將影片文件放置在 <code>public/videos/</code> 資料夾中</li>
+                <li>運行上傳腳本：<code>npm run upload-videos</code></li>
+                <li>或使用 Netlify CLI：<code>netlify blobs:set videos [blob-key] [file-path]</code></li>
+                <li>點擊 "🔍 檢查 Netlify Blobs" 按鈕確認上傳狀態</li>
+              </ol>
+            </div>
+
             <!-- 快取管理控制 -->
             <div class="cache-controls">
               <h3>🗄️ 快取管理</h3>
               <div class="control-buttons">
+                <button @click="checkBlobsStatus" class="cache-btn refresh">
+                  🔍 檢查 Netlify Blobs
+                </button>
                 <button @click="preloadAllVideos" class="cache-btn preload" :disabled="isPreloading">
                   {{ isPreloading ? '預載中...' : '📥 預載所有影片' }}
                 </button>
@@ -509,6 +524,8 @@
                   <div class="video-header">
                     <h4>{{ video.displayName }}</h4>
                     <div class="video-status">
+                      <span v-if="video.blobExists" class="status-badge blob-exists">Blob 已上傳</span>
+                      <span v-else class="status-badge blob-missing">Blob 未上傳</span>
                       <span v-if="video.cached" class="status-badge cached">已快取</span>
                       <span v-else class="status-badge not-cached">未快取</span>
                     </div>
@@ -820,7 +837,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 
 // 響應式數據
@@ -863,24 +880,26 @@ const videoList = ref([
   {
     blobKey: '19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4',
     displayName: '鋒兄的傳奇人生',
-    fileSize: null,
-    uploadedAt: null,
+    fileSize: 15728640, // 15MB (估計)
+    uploadedAt: '2025-01-21',
     cached: false,
     loading: false,
     error: false,
     caching: false,
-    poster: null
+    poster: null,
+    blobExists: false
   },
   {
     blobKey: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4',
     displayName: '鋒兄進化Show🔥',
-    fileSize: null,
-    uploadedAt: null,
+    fileSize: 8388608, // 8MB (估計)
+    uploadedAt: '2025-01-20',
     cached: false,
     loading: false,
     error: false,
     caching: false,
-    poster: null
+    poster: null,
+    blobExists: false
   }
 ])
 
@@ -910,6 +929,13 @@ const setCurrentPage = (page) => {
   // 在移動端切換頁面時關閉側邊欄
   if (window.innerWidth <= 768) {
     sidebarOpen.value = false
+  }
+  
+  // 當切換到影片頁面時，檢查 Netlify Blobs 狀態
+  if (page === 'video') {
+    nextTick(() => {
+      checkBlobsStatus()
+    })
   }
 }
 
@@ -1297,7 +1323,7 @@ const getVideoUrl = (blobKey) => {
     return cached.blobUrl
   }
   
-  // 回退到 Netlify Blobs URL 或本地檔案
+  // 使用 Netlify Blobs API
   return `/.netlify/blobs/${blobKey}`
 }
 
@@ -1468,6 +1494,46 @@ const checkCacheStatus = () => {
   })
   
   showCacheMessage('快取狀態已更新', 'info')
+}
+
+// 檢查 Netlify Blobs 狀態
+const checkBlobsStatus = async () => {
+  showCacheMessage('正在檢查 Netlify Blobs 狀態...', 'info')
+  
+  try {
+    let existingBlobs = 0
+    
+    for (const video of videoList.value) {
+      try {
+        // 嘗試訪問 blob URL 來檢查是否存在
+        const response = await fetch(`/.netlify/blobs/${video.blobKey}`, { method: 'HEAD' })
+        video.blobExists = response.ok
+        
+        if (response.ok) {
+          existingBlobs++
+          video.error = false
+        } else {
+          video.error = true
+        }
+      } catch (error) {
+        video.blobExists = false
+        video.error = true
+      }
+    }
+    
+    const totalBlobs = videoList.value.length
+    
+    if (existingBlobs === totalBlobs) {
+      showCacheMessage(`✅ 所有影片 (${existingBlobs}/${totalBlobs}) 都已上傳到 Netlify Blobs`, 'success')
+    } else if (existingBlobs > 0) {
+      showCacheMessage(`⚠️ 部分影片 (${existingBlobs}/${totalBlobs}) 已上傳到 Netlify Blobs`, 'info')
+    } else {
+      showCacheMessage(`❌ 沒有影片上傳到 Netlify Blobs，請先上傳影片`, 'error')
+    }
+  } catch (error) {
+    console.error('檢查 Netlify Blobs 狀態失敗:', error)
+    showCacheMessage(`❌ 檢查失敗: ${error.message}`, 'error')
+  }
 }
 
 const downloadVideo = async (blobKey, displayName) => {
@@ -1734,6 +1800,11 @@ const loadInitialData = async () => {
 
     // 載入圖片畫廊數據
     loadGalleryImages()
+    
+    // 檢查 Netlify Blobs 狀態
+    if (currentPage.value === 'video') {
+      checkBlobsStatus()
+    }
   } catch (error) {
     console.error('載入初始數據失敗:', error)
   }
@@ -2648,6 +2719,41 @@ onUnmounted(() => {
   font-weight: bold;
 }
 
+.upload-guide {
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  padding: 2rem;
+  border-radius: 12px;
+  margin-bottom: 2rem;
+}
+
+.upload-guide h3 {
+  color: #856404;
+  margin-bottom: 1rem;
+}
+
+.upload-guide p {
+  color: #856404;
+  margin-bottom: 1rem;
+}
+
+.upload-guide ol {
+  color: #856404;
+  padding-left: 1.5rem;
+}
+
+.upload-guide li {
+  margin-bottom: 0.5rem;
+}
+
+.upload-guide code {
+  background: #f8f9fa;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  color: #e83e8c;
+}
+
 .cache-controls {
   background: white;
   padding: 2rem;
@@ -2804,6 +2910,16 @@ onUnmounted(() => {
 }
 
 .status-badge.not-cached {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.status-badge.blob-exists {
+  background: #d1ecf1;
+  color: #0c5460;
+}
+
+.status-badge.blob-missing {
   background: #f8d7da;
   color: #721c24;
 }

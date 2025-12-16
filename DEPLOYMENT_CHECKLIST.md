@@ -52,8 +52,8 @@ docker run -p 3000:3000 nuxt-app
 - [ ] SUPABASE_ANON_KEY 已設置
 
 ### 構建測試
-- [ ] `npm run build` 成功
-- [ ] `npm run preview` 正常運行
+- [x] `npm run build` 成功
+- [x] 構建錯誤已修復
 
 ### 圖片資源
 - [ ] public/images 資料夾包含所有圖片
