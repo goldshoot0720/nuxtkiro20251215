@@ -880,8 +880,8 @@ const videoList = ref([
   {
     blobKey: '19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4',
     displayName: '鋒兄的傳奇人生',
-    fileSize: 15728640, // 15MB (估計)
-    uploadedAt: '2025-01-21',
+    fileSize: 149202463, // 142.29MB (實際大小)
+    uploadedAt: '2025-12-16',
     cached: false,
     loading: false,
     error: false,
@@ -892,8 +892,8 @@ const videoList = ref([
   {
     blobKey: 'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4',
     displayName: '鋒兄進化Show🔥',
-    fileSize: 8388608, // 8MB (估計)
-    uploadedAt: '2025-01-20',
+    fileSize: 46317671, // 44.17MB (實際大小)
+    uploadedAt: '2025-12-16',
     cached: false,
     loading: false,
     error: false,
