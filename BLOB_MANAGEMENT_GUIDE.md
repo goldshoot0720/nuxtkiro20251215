@@ -8,13 +8,15 @@
 1. **鋒兄的傳奇人生**
    - Blob Key: `19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4`
    - 狀態: ✅ 已上傳到 Netlify Blobs
-   - 大小: 142.29 MB (149,202,463 bytes)
+   - 檔案大小: 142.29 MB (149,202,463 bytes)
+   - 上傳時間: 2025-12-16 13:08:20 (UTC+8)
    - 訪問 URL: `/api/blobs/19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4`
 
 2. **鋒兄進化Show🔥**
    - Blob Key: `clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4`
    - 狀態: ✅ 已上傳到 Netlify Blobs
-   - 大小: 44.17 MB (46,317,671 bytes)
+   - 檔案大小: 44.17 MB (46,317,671 bytes)
+   - 上傳時間: 2025-12-16 13:08:24 (UTC+8)
    - 訪問 URL: `/api/blobs/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4`
 
 ## 🛠️ 管理工具
@@ -149,18 +151,49 @@ netlify dev --command "npm run blob-report"
 
 ## 📊 當前統計
 
-根據最新報告 (2025-12-16T04:52:53.770Z)：
+根據最新報告 (2025-12-16T05:13:01.496Z)：
 - 總影片數: 2
 - 存在於 Blobs: 2 ✅
-- 總大小: 186.46 MB
+- 總檔案大小: 186.46 MB
+- 最後更新: 2025-12-16 13:08:24 (UTC+8)
 
 ## �  完成狀態
 
 ✅ **所有影片已成功上傳並可正常訪問！**
 
 ### 驗證結果
-- 影片 1: https://nuxtkiro20251215.netlify.app/api/blobs/19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4 ✅
-- 影片 2: https://nuxtkiro20251215.netlify.app/api/blobs/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4 ✅
+- **影片 1**: https://nuxtkiro20251215.netlify.app/api/blobs/19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4 ✅
+  - Content-Length: 129,484,689 bytes (實際傳輸大小)
+  - Content-Type: video/mp4
+  - Accept-Ranges: bytes
+  
+- **影片 2**: https://nuxtkiro20251215.netlify.app/api/blobs/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4 ✅
+  - Content-Length: 46,317,671 bytes
+  - Content-Type: video/mp4
+  - Accept-Ranges: bytes
+
+## 📋 技術規格
+
+### 影片詳細信息
+
+| 項目 | 鋒兄的傳奇人生 | 鋒兄進化Show🔥 |
+|------|---------------|---------------|
+| **檔案名稱** | `19700121-1829-693fee512bec81918cbfd484c6a5ba8f_enx4rsS0.mp4` | `clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4` |
+| **檔案大小** | 142.29 MB (149,202,463 bytes) | 44.17 MB (46,317,671 bytes) |
+| **上傳時間** | 2025-12-16 13:08:20 | 2025-12-16 13:08:24 |
+| **Content-Type** | video/mp4 | video/mp4 |
+| **ETag** | "5f1e2ada84c36f6fb5c464142e17c00b" | "b4e158af591954f3827821b86b35db04" |
+| **狀態** | ✅ 正常 | ✅ 正常 |
+
+### 系統配置
+
+- **Netlify Site ID**: `970c7bab-2d0c-46b4-941f-1f7131995a0f`
+- **Blob Store**: `videos`
+- **API 端點**: `/api/blobs/`
+- **代理函數**: `netlify/functions/blob-proxy.js`
+- **快取策略**: `public, max-age=86400` (24小時)
+- **CORS**: 已啟用 (`Access-Control-Allow-Origin: *`)
+- **範圍請求**: 支援 (`Accept-Ranges: bytes`)
 
 ### 🧹 可選的清理步驟
 
