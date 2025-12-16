@@ -11,10 +11,13 @@ export default defineNuxtConfig({
     preset: 'netlify'
   },
   
-  components: {
-    global: true,
-    dirs: ['~/components']
-  },
+  components: [
+    {
+      path: '~/components',
+      global: true,
+      pathPrefix: false
+    }
+  ],
   
   runtimeConfig: {
     // Private keys (only available on server-side)
