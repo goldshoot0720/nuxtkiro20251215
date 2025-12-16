@@ -1,5 +1,17 @@
 <template>
   <div class="dashboard-container">
+    <!-- 版權資訊 -->
+    <div class="copyright-info">
+      <h2>鋒兄塗哥公關資訊</h2>
+      <p class="copyright-text">
+        © 版權所有 2025～2125 | 
+        前端使用 Vue (Nuxt) | 
+        後端使用 Supabase | 
+        影片存放於 Netlify | 
+        網頁存放於 Netlify
+      </p>
+    </div>
+
     <h1>儀表板</h1>
     
     <!-- 儀表板概覽 -->
@@ -60,6 +72,30 @@ defineEmits(['navigate'])
 <style scoped>
 .dashboard-container {
   animation: fadeIn 0.3s ease-in;
+}
+
+/* 版權資訊樣式 */
+.copyright-info {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 2rem;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 2rem;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.copyright-info h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.8rem;
+  font-weight: 600;
+}
+
+.copyright-text {
+  margin: 0;
+  font-size: 1rem;
+  opacity: 0.9;
+  line-height: 1.6;
 }
 
 .dashboard-overview {
@@ -161,6 +197,36 @@ defineEmits(['navigate'])
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+  .copyright-info {
+    padding: 1.5rem;
+  }
+  
+  .copyright-info h2 {
+    font-size: 1.5rem;
+  }
+  
+  .copyright-text {
+    font-size: 0.9rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .copyright-info {
+    padding: 1rem;
+  }
+  
+  .copyright-info h2 {
+    font-size: 1.3rem;
+  }
+  
+  .copyright-text {
+    font-size: 0.8rem;
+    line-height: 1.8;
   }
 }
 </style>
