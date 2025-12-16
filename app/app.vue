@@ -858,21 +858,6 @@ const newFood = ref({
   photohash: ''
 })
 
-// 食品管理相關
-const foodLoading = ref(false)
-const editingFood = ref(null)
-
-// 新增食品表單
-const newFood = ref({
-  name: '',
-  amount: null,
-  price: null,
-  shop: '',
-  todate: '',
-  photo: '',
-  photohash: ''
-})
-
 // 影片管理相關
 const videoList = ref([
   {
@@ -3081,7 +3066,6 @@ onUnmounted(() => {
     padding: 1rem;
   }
 }
-</style>
 
 /* 圖片畫廊樣式 */
 .image-gallery-container {
