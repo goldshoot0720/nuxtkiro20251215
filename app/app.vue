@@ -217,6 +217,8 @@ const isDevelopment = computed(() => false) // Set to true for debugging scroll 
 // 頁面導航
 const setCurrentPage = (page) => {
   currentPage.value = page
+  // 更新頁面標題
+  updatePageTitle()
   // 在手機版自動關閉側邊欄
   if (import.meta.client && window.innerWidth <= 768) {
     sidebarOpen.value = false
@@ -232,6 +234,25 @@ const getPageTitle = () => {
     gallery: '🖼️ 鋒兄圖片庫'
   }
   return titles[currentPage.value] || '🏢 鋒兄管理系統'
+}
+
+// 動態設置頁面標題
+const updatePageTitle = () => {
+  const pageTitles = {
+    dashboard: '儀表板',
+    subscription: '訂閱管理',
+    food: '食物管理',
+    video: '影片庫',
+    gallery: '圖片庫'
+  }
+  
+  const pageTitle = pageTitles[currentPage.value] || '管理系統'
+  
+  if (import.meta.client) {
+    useHead({
+      title: pageTitle
+    })
+  }
 }
 
 // 側邊欄控制
@@ -353,6 +374,9 @@ onMounted(async () => {
   // 載入初始資料
   loadSubscriptions()
   loadFoods()
+  
+  // 設置初始頁面標題
+  updatePageTitle()
   
   if (import.meta.client) {
     // 初始化暗黑模式
