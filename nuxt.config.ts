@@ -37,7 +37,7 @@ export default defineNuxtConfig({
   modules: [],
   
   // 全域 CSS
-  css: [],
+  css: ['~/assets/css/variables.css'],
   
   // Netlify部署配置
   nitro: {
