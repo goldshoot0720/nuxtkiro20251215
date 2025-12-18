@@ -106,10 +106,7 @@
       <div class="container">
         <div class="footer-content">
           <p class="copyright">
-            鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案
-          </p>
-          <p class="tech-info">
-            前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify
+            鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify
           </p>
         </div>
       </div>
