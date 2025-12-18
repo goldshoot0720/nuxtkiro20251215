@@ -3,8 +3,8 @@
     <!-- Hero Section -->
     <section class="hero">
       <div class="hero-content">
-        <h1 class="hero-title">專業公關服務</h1>
-        <p class="hero-subtitle">創新傳播策略 · 品牌價值提升</p>
+        <h1 class="hero-title">鋒兄塗哥公關資訊Professional Business Solutions</h1>
+        <p class="hero-subtitle">專業管理系統解決方案 · 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify</p>
         <div class="hero-buttons">
           <NuxtLink to="/about" class="btn btn-primary">了解更多</NuxtLink>
           <button class="btn btn-secondary">聯繫我們</button>
@@ -100,6 +100,20 @@
         </div>
       </div>
     </section>
+
+    <!-- 版權信息 -->
+    <footer class="footer-section">
+      <div class="container">
+        <div class="footer-content">
+          <p class="copyright">
+            鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125
+          </p>
+          <p class="tech-info">
+            專業管理系統解決方案 | 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify
+          </p>
+        </div>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -192,9 +206,9 @@ const onImageError = (event) => {
 
 // 页面配置
 useHead({
-  title: '鋒兄塗哥公關資訊 - 專業公關服務',
+  title: '鋒兄塗哥公關資訊Professional Business Solutions - 專業管理系統解決方案',
   meta: [
-    { name: 'description', content: '鋒兄塗哥公關資訊提供專業公關服務，包括媒體關係、品牌策略、危機處理等。' }
+    { name: 'description', content: '鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify' }
   ]
 })
 
@@ -333,6 +347,34 @@ onMounted(() => {
   color: #666;
 }
 
+/* Footer Section */
+.footer-section {
+  background: #2c3e50;
+  color: white;
+  padding: 40px 0;
+  text-align: center;
+}
+
+.footer-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.copyright {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #ecf0f1;
+}
+
+.tech-info {
+  font-size: 0.95rem;
+  color: #bdc3c7;
+  line-height: 1.6;
+  opacity: 0.9;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .hero-title {
@@ -346,6 +388,18 @@ onMounted(() => {
   
   .nav-menu {
     gap: 20px;
+  }
+  
+  .footer-section {
+    padding: 30px 0;
+  }
+  
+  .copyright {
+    font-size: 1rem;
+  }
+  
+  .tech-info {
+    font-size: 0.9rem;
   }
 }
 </style>
