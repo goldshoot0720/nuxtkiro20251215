@@ -3,8 +3,8 @@
     <!-- Hero Section -->
     <section class="hero">
       <div class="hero-content">
-        <h1 class="hero-title">鋒兄塗哥公關資訊Professional Business Solutions</h1>
-        <p class="hero-subtitle">專業管理系統解決方案 · 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify</p>
+        <h1 class="hero-title">兄塗哥公關資訊Professional Business Solutions</h1>
+        <p class="hero-subtitle">專業管理系統解決方案 · 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify Blobs</p>
         <div class="hero-buttons">
           <NuxtLink to="/about" class="btn btn-primary">了解更多</NuxtLink>
           <button class="btn btn-secondary">聯繫我們</button>
@@ -106,7 +106,7 @@
       <div class="container">
         <div class="footer-content">
           <p class="copyright">
-            鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify
+            鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify Blobs
           </p>
         </div>
       </div>
@@ -205,7 +205,7 @@ const onImageError = (event) => {
 useHead({
   title: '鋒兄塗哥公關資訊Professional Business Solutions - 專業管理系統解決方案',
   meta: [
-    { name: 'description', content: '鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify Blobs | 網頁存放於 Netlify' }
+    { name: 'description', content: '鋒兄塗哥公關資訊Professional Business Solutions©版權所有 2025～2125 | 專業管理系統解決方案 前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify Blobs' }
   ]
 })
 

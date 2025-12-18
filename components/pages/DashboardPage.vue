@@ -11,7 +11,7 @@
           </div>
           <p class="copyright-text">
             <span class="copyright-main">©版權所有 2025～2125 | 專業管理系統解決方案</span><br>
-            <span class="tech-stack">前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify</span>
+            <span class="tech-stack">前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify Blobs</span>
           </p>
         </div>
       </div>
