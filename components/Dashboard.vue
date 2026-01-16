@@ -20,6 +20,11 @@
           <div class="stat-number">NT$ {{ totalMonthlyCost }}</div>
           <div class="stat-label">訂閱總費用</div>
         </div>
+        <div class="stat-card music">
+          <h3>🎵 音樂庫</h3>
+          <div class="stat-number">48</div>
+          <div class="stat-label">音樂作品</div>
+        </div>
       </div>
 
       <!-- 警告區域 -->
@@ -100,6 +105,9 @@
           </button>
           <button @click="$emit('navigate', 'food')" class="action-btn secondary">
             新增食品記錄
+          </button>
+          <button @click="$emit('navigate', 'music')" class="action-btn music">
+            🎵 音樂庫
           </button>
         </div>
       </div>
@@ -228,6 +236,23 @@ h1 {
 
 .stat-card:hover {
   transform: translateY(-5px);
+}
+
+.stat-card.music {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.stat-card.music h3 {
+  color: white;
+}
+
+.stat-card.music .stat-number {
+  color: white;
+}
+
+.stat-card.music .stat-label {
+  color: rgba(255,255,255,0.9);
 }
 
 .stat-card h3 {
@@ -381,6 +406,16 @@ h1 {
 
 .action-btn.secondary:hover {
   background: #7f8c8d;
+  transform: translateY(-2px);
+}
+
+.action-btn.music {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.action-btn.music:hover {
+  background: linear-gradient(135deg, #e082ea 0%, #e4465b 100%);
   transform: translateY(-2px);
 }
 

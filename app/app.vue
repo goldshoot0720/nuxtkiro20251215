@@ -55,6 +55,11 @@
             v-if="currentPage === 'gallery'"
             ref="galleryPageRef"
           />
+
+          <!-- 音樂庫 -->
+          <MusicPage 
+            v-if="currentPage === 'music'"
+          />
         </main>
       </div>
     </div>
@@ -109,6 +114,7 @@ import SubscriptionPage from '../components/pages/SubscriptionPage.vue'
 import FoodPage from '../components/pages/FoodPage.vue'
 import VideoPage from '../components/pages/VideoPage.vue'
 import GalleryPage from '../components/pages/GalleryPage.vue'
+import MusicPage from '../components/pages/MusicPage.vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ToastContainer from '../components/ui/ToastContainer.vue'

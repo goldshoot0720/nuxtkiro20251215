@@ -355,7 +355,7 @@ defineExpose({
 
 .foods-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
 }
 
@@ -524,7 +524,7 @@ defineExpose({
   }
   
   .foods-grid {
-    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
   }
   
@@ -549,7 +549,7 @@ defineExpose({
   }
   
   .foods-grid {
-    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.5rem;
   }
   
@@ -590,7 +590,7 @@ defineExpose({
 /* 平板直向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .foods-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   
   .food-card {

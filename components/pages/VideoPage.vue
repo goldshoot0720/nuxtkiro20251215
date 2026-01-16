@@ -509,7 +509,7 @@ defineExpose({
 
 .videos-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  grid-template-columns: 1fr;
   gap: 2rem;
 }
 
@@ -1056,7 +1056,7 @@ defineExpose({
   }
   
   .videos-grid {
-    grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2.5rem;
   }
   
@@ -1085,7 +1085,7 @@ defineExpose({
   }
   
   .videos-grid {
-    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
   }
   
@@ -1111,7 +1111,7 @@ defineExpose({
 /* 平板橫向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
   .videos-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   
   .video-card {
@@ -1133,7 +1133,7 @@ defineExpose({
 /* 平板直向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .videos-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   
   .video-card {

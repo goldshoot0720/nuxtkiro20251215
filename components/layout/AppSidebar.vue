@@ -41,7 +41,8 @@ defineProps({
       { id: 'subscription', name: '訂閱管理', icon: '💳' },
       { id: 'food', name: '食物管理', icon: '🛒' },
       { id: 'video', name: '影片庫', icon: '🎥' },
-      { id: 'gallery', name: '圖片庫', icon: '🖼️' }
+      { id: 'gallery', name: '圖片庫', icon: '🖼️' },
+      { id: 'music', name: '音樂庫', icon: '🎵' }
     ]
   }
 })

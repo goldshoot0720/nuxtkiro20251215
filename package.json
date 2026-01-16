@@ -10,6 +10,8 @@
     "postinstall": "nuxt prepare",
     "upload-videos": "node scripts/upload-videos.js",
     "upload-videos-manual": "node scripts/upload-videos-manual.js",
+    "upload-music": "node scripts/upload-music.js",
+    "upload-music-cli": "node scripts/upload-music-cli.js",
     "check-blobs": "node scripts/check-blobs.js",
     "test-blobs": "node scripts/test-blobs-connection.js",
     "manage-blobs": "node scripts/blob-manager.js",

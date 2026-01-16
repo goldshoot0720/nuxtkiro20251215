@@ -3,8 +3,20 @@ import { getStore } from '@netlify/blobs'
 
 export default async (request) => {
   const url = new URL(request.url)
-  // 從 URL 路徑中提取 blob key
-  const blobKey = url.pathname.replace('/api/blobs/', '')
+  const apiPrefix = '/api/blobs/'
+  const path = url.pathname
+  if (!path.startsWith(apiPrefix)) {
+    return new Response('Invalid path', { status: 400 })
+  }
+
+  const rawKey = path.slice(apiPrefix.length)
+  let storeName = 'videos'
+  let blobKey = rawKey
+
+  if (rawKey.startsWith('music/')) {
+    storeName = 'music'
+    blobKey = rawKey.slice('music/'.length)
+  }
   
   console.log('Blob proxy request:', { 
     method: request.method,
@@ -14,16 +26,13 @@ export default async (request) => {
   })
   
   try {
-    // 驗證 blob key
     if (!blobKey || blobKey.trim() === '') {
       console.error('Invalid blob key:', blobKey)
       return new Response('Invalid blob key', { status: 400 })
     }
     
-    // 獲取 Netlify Blobs store
-    const store = getStore('videos')
+    const store = getStore(storeName)
     
-    // 獲取 blob 作為 stream
     console.log('Fetching blob as stream:', blobKey)
     const blob = await store.get(blobKey, { type: 'stream' })
     
@@ -34,7 +43,6 @@ export default async (request) => {
     
     console.log('Blob stream found!')
     
-    // 嘗試獲取元數據來確定文件大小
     let contentLength = null
     try {
       const metadata = await store.getMetadata(blobKey)
@@ -46,22 +54,31 @@ export default async (request) => {
       console.log('Could not get metadata:', metaError.message)
     }
     
-    // 構建響應頭
+    let contentType = 'application/octet-stream'
+    const lowerKey = blobKey.toLowerCase()
+    if (lowerKey.endsWith('.mp4')) {
+      contentType = 'video/mp4'
+    } else if (lowerKey.endsWith('.mp3')) {
+      contentType = 'audio/mpeg'
+    } else if (lowerKey.endsWith('.m4a')) {
+      contentType = 'audio/mp4'
+    } else if (lowerKey.endsWith('.wav')) {
+      contentType = 'audio/wav'
+    }
+
     const headers = {
-      'Content-Type': 'video/mp4',
+      'Content-Type': contentType,
       'Cache-Control': 'public, max-age=86400',
       'Access-Control-Allow-Origin': '*',
       'Accept-Ranges': 'bytes'
     }
     
-    // 如果有內容長度，添加到頭部
     if (contentLength) {
       headers['Content-Length'] = contentLength
     }
     
     console.log('Returning blob stream with headers:', headers)
     
-    // 返回 stream
     return new Response(blob, {
       status: 200,
       headers

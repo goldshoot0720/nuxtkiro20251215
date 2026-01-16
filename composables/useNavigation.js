@@ -12,7 +12,8 @@ const pages = [
   { id: 'subscription', name: '訂閱管理', icon: '💳', title: '💳 鋒兄訂閱管理' },
   { id: 'food', name: '食物管理', icon: '🛒', title: '🛒 鋒兄食物管理' },
   { id: 'video', name: '影片庫', icon: '🎥', title: '🎥 鋒兄影片庫' },
-  { id: 'gallery', name: '圖片庫', icon: '🖼️', title: '🖼️ 鋒兄圖片庫' }
+  { id: 'gallery', name: '圖片庫', icon: '🖼️', title: '🖼️ 鋒兄圖片庫' },
+  { id: 'music', name: '音樂庫', icon: '🎵', title: '🎵 鋒兄音樂庫' }
 ]
 
 export const useNavigation = () => {

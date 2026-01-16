@@ -343,7 +343,7 @@ defineExpose({
 /* 網格檢視 */
 .gallery-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  grid-template-columns: 1fr;
   gap: 1.5rem;
 }
 
@@ -696,7 +696,7 @@ defineExpose({
   }
   
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
   }
   
@@ -731,7 +731,7 @@ defineExpose({
   }
   
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1.5rem;
   }
   
@@ -760,7 +760,7 @@ defineExpose({
 /* 平板橫向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   
   .image-wrapper {
@@ -780,7 +780,7 @@ defineExpose({
 /* 平板直向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   
   .image-wrapper {
@@ -806,7 +806,7 @@ defineExpose({
   }
   
   .gallery-grid {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: 1fr;
     gap: 1.2rem;
   }
   
