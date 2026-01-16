@@ -3,7 +3,7 @@ import { ref } from 'vue'
 export const useMusic = () => {
   const musicList = ref([
     {
-      blobKey: '鋒兄的傳奇人生/鋒兄的傳奇人生.mp3',
+      blobKey: '鋒兄的傳奇人生.mp3',
       title: '鋒兄的傳奇人生',
       artist: '鋒兄',
       duration: '03:45',
@@ -14,7 +14,7 @@ export const useMusic = () => {
       error: false
     },
     {
-      blobKey: '鋒兄進化Show🔥/鋒兄進化Show🔥.mp3',
+      blobKey: '鋒兄進化Show🔥.mp3',
       title: '鋒兄進化Show🔥',
       artist: '鋒兄',
       duration: '04:10',

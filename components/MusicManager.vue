@@ -257,7 +257,7 @@ const getMusicUrl = (blobKey) => {
   }
   
   // 回退到 Netlify Blobs URL
-  return `/api/music/${encodeURIComponent(blobKey)}`
+  return `/api/blobs/music/${encodeURIComponent(blobKey)}`
 }
 
 // 檢查音樂是否已快取
@@ -337,7 +337,7 @@ const preloadMusic = async (blobKey) => {
   
   try {
     // 從 Netlify Blobs 獲取音樂
-    const response = await fetch(`/api/music/${encodeURIComponent(blobKey)}`)
+    const response = await fetch(`/api/blobs/music/${encodeURIComponent(blobKey)}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     
     const blob = await response.blob()
@@ -421,7 +421,7 @@ const clearMusicCache = async (blobKey) => {
     // 重置音樂元素的 src
     const audioEl = audioRefs.get(blobKey)
     if (audioEl) {
-      audioEl.src = `/api/music/${encodeURIComponent(blobKey)}`
+      audioEl.src = `/api/blobs/music/${encodeURIComponent(blobKey)}`
     }
     
     updateCacheSize()
@@ -456,7 +456,7 @@ const clearAllCache = async () => {
       category.tracks.forEach(track => {
         const audioEl = audioRefs.get(track.blobKey)
         if (audioEl) {
-          audioEl.src = `/api/music/${encodeURIComponent(track.blobKey)}`
+          audioEl.src = `/api/blobs/music/${encodeURIComponent(track.blobKey)}`
         }
       })
     })
