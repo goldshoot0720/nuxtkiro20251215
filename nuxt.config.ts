@@ -34,7 +34,16 @@ export default defineNuxtConfig({
   },
   
   // 模組
-  modules: [],
+  modules: ['@nuxtjs/supabase'],
+  
+  // Supabase 配置
+  supabase: {
+    redirectOptions: {
+      login: '/login',
+      callback: '/confirm',
+      exclude: ['/*'],
+    }
+  },
   
   // 全域 CSS
   css: ['~/assets/css/variables.css'],

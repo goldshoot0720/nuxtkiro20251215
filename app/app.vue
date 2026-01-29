@@ -60,6 +60,22 @@
           <MusicPage 
             v-if="currentPage === 'music'"
           />
+
+          <!-- 銀行統計 -->
+          <BankPage 
+            v-if="currentPage === 'bank'"
+            ref="bankPageRef"
+          />
+
+          <!-- 鋒兄筆記 -->
+          <NotePage 
+            v-if="currentPage === 'note'"
+          />
+
+          <!-- 鋒兄常用 -->
+          <CommonPage 
+            v-if="currentPage === 'common'"
+          />
         </main>
       </div>
     </div>
@@ -134,6 +150,7 @@ const subscriptionPageRef = ref(null)
 const foodPageRef = ref(null)
 const videoPageRef = ref(null)
 const galleryPageRef = ref(null)
+const bankPageRef = ref(null)
 
 // 使用 composables
 const { subscriptions, totalMonthlyCost, loadSubscriptions } = useSubscriptions()
