@@ -38,6 +38,8 @@ export default defineNuxtConfig({
   
   // Supabase 配置
   supabase: {
+    url: process.env.SUPABASE_URL,
+    key: process.env.SUPABASE_ANON_KEY,
     redirectOptions: {
       login: '/login',
       callback: '/confirm',
