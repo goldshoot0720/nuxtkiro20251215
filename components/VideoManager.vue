@@ -67,28 +67,48 @@
         </div>
 
         <div class="video-container">
+          <!-- 載入狀態提示 -->
+          <div 
+            v-if="videoLoadingStatus[video.blobKey]" 
+            class="loading-status"
+            :class="videoLoadingStatus[video.blobKey].type"
+          >
+            <div class="status-header">
+              <span class="status-icon">{{ videoLoadingStatus[video.blobKey].icon }}</span>
+              <span class="status-text">{{ videoLoadingStatus[video.blobKey].message }}</span>
+            </div>
+            <div v-if="videoLoadingStatus[video.blobKey].progress !== null" class="progress-bar-container">
+              <div class="progress-bar">
+                <div 
+                  class="progress-fill" 
+                  :style="{ width: videoLoadingStatus[video.blobKey].progress + '%' }"
+                ></div>
+              </div>
+              <span class="progress-text">{{ videoLoadingStatus[video.blobKey].progress }}%</span>
+            </div>
+            <div v-if="videoLoadingStatus[video.blobKey].details" class="status-details">
+              {{ videoLoadingStatus[video.blobKey].details }}
+            </div>
+          </div>
+          
           <video 
             :ref="el => setVideoRef(video.blobKey, el)"
             class="video-player"
             controls
-            preload="metadata"
+            preload="none"
             :poster="video.poster"
+            @play="onVideoPlay(video.blobKey)"
             @loadstart="onVideoLoadStart(video.blobKey)"
+            @progress="onVideoProgress(video.blobKey, $event)"
+            @canplay="onVideoCanPlay(video.blobKey)"
             @loadeddata="onVideoLoaded(video.blobKey)"
+            @playing="onVideoPlaying(video.blobKey)"
+            @waiting="onVideoWaiting(video.blobKey)"
             @error="onVideoError(video.blobKey, $event)"
           >
             <source :src="getVideoUrl(video.blobKey)" type="video/mp4">
             您的瀏覽器不支援影片播放。
           </video>
-          
-          <!-- 載入狀態 -->
-          <div 
-            v-if="loadingVideos.has(video.blobKey)" 
-            class="loading-overlay"
-          >
-            <div class="loading-spinner"></div>
-            <p>載入中...</p>
-          </div>
         </div>
 
         <div class="video-info-panel">
@@ -133,6 +153,7 @@ const loadingVideos = reactive(new Set())
 const cachedVideos = ref([])
 const cacheSize = ref(0)
 const videoRefs = reactive(new Map())
+const videoLoadingStatus = reactive({})
 
 // 影片配置
 const videos = ref([
@@ -431,16 +452,124 @@ const loadExistingCache = async () => {
 }
 
 // 影片事件處理
+const onVideoPlay = (blobKey) => {
+  console.log(`用戶點擊播放影片: ${blobKey}`)
+  videoLoadingStatus[blobKey] = {
+    type: 'info',
+    icon: '🎬',
+    message: '正在從 Netlify Blobs 載入影片...',
+    progress: 0,
+    details: null
+  }
+}
+
 const onVideoLoadStart = (blobKey) => {
   console.log(`影片開始載入: ${blobKey}`)
+  videoLoadingStatus[blobKey] = {
+    type: 'info',
+    icon: '📥',
+    message: '開始下載影片...',
+    progress: 0,
+    details: '正在連接 Netlify Blobs 服務器'
+  }
+}
+
+const onVideoProgress = (blobKey, event) => {
+  const video = event.target
+  if (video.buffered.length > 0) {
+    const bufferedEnd = video.buffered.end(video.buffered.length - 1)
+    const duration = video.duration
+    if (duration > 0) {
+      const progress = Math.round((bufferedEnd / duration) * 100)
+      const bufferedMB = (bufferedEnd * (video.videoWidth * video.videoHeight * 0.5 / 8 / 1024 / 1024)).toFixed(2)
+      
+      videoLoadingStatus[blobKey] = {
+        type: 'info',
+        icon: '⏬',
+        message: '下載中...',
+        progress: progress,
+        details: `已緩衝: ${bufferedEnd.toFixed(1)}秒 / ${duration.toFixed(1)}秒`
+      }
+    }
+  }
+}
+
+const onVideoCanPlay = (blobKey) => {
+  console.log(`影片可以播放: ${blobKey}`)
+  const video = videoRefs.get(blobKey)
+  const duration = video?.duration || 0
+  
+  videoLoadingStatus[blobKey] = {
+    type: 'success',
+    icon: '✅',
+    message: '下載完成，準備播放',
+    progress: 100,
+    details: duration > 0 ? `影片時長: ${Math.floor(duration / 60)}:${String(Math.floor(duration % 60)).padStart(2, '0')}` : null
+  }
+  
+  // 3秒後自動隱藏狀態
+  setTimeout(() => {
+    if (videoLoadingStatus[blobKey]?.type === 'success') {
+      delete videoLoadingStatus[blobKey]
+    }
+  }, 3000)
 }
 
 const onVideoLoaded = (blobKey) => {
   console.log(`影片載入完成: ${blobKey}`)
 }
 
+const onVideoPlaying = (blobKey) => {
+  console.log(`影片正在播放: ${blobKey}`)
+  // 播放時清除狀態提示
+  delete videoLoadingStatus[blobKey]
+}
+
+const onVideoWaiting = (blobKey) => {
+  console.log(`影片緩衝中: ${blobKey}`)
+  videoLoadingStatus[blobKey] = {
+    type: 'warning',
+    icon: '⏳',
+    message: '緩衝中，請稍候...',
+    progress: null,
+    details: '網路速度較慢，正在載入更多內容'
+  }
+}
+
 const onVideoError = (blobKey, event) => {
   console.error(`影片載入錯誤 (${blobKey}):`, event)
+  const video = event.target
+  let errorMessage = '載入失敗'
+  let errorDetails = ''
+  
+  if (video.error) {
+    switch (video.error.code) {
+      case 1:
+        errorMessage = '載入被中止'
+        errorDetails = '影片載入過程被用戶或瀏覽器中止'
+        break
+      case 2:
+        errorMessage = '網路錯誤'
+        errorDetails = '無法從 Netlify Blobs 下載影片，請檢查網路連接'
+        break
+      case 3:
+        errorMessage = '解碼錯誤'
+        errorDetails = '影片文件損壞或格式不支援'
+        break
+      case 4:
+        errorMessage = '不支援的格式'
+        errorDetails = '瀏覽器不支援此影片格式'
+        break
+    }
+  }
+  
+  videoLoadingStatus[blobKey] = {
+    type: 'error',
+    icon: '❌',
+    message: errorMessage,
+    progress: null,
+    details: errorDetails
+  }
 }
 
 // 組件掛載
@@ -637,40 +766,144 @@ onUnmounted(() => {
   padding: 1.5rem;
 }
 
-.video-player {
-  width: 100%;
-  height: auto;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+.loading-status {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  animation: slideIn 0.3s ease-out;
 }
 
-.loading-overlay {
+.loading-status.info {
+  border-left: 4px solid #3498db;
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+}
+
+.loading-status.success {
+  border-left: 4px solid #27ae60;
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+}
+
+.loading-status.warning {
+  border-left: 4px solid #f39c12;
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+}
+
+.loading-status.error {
+  border-left: 4px solid #e74c3c;
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.status-icon {
+  font-size: 1.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #2c3e50;
+  flex: 1;
+}
+
+.progress-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.progress-bar {
+  flex: 1;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3498db 0%, #2ecc71 100%);
+  border-radius: 12px;
+  transition: width 0.3s ease;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.progress-text {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #2c3e50;
+  min-width: 50px;
+  text-align: right;
+}
+
+.status-details {
+  font-size: 0.9rem;
+  color: #666;
+  font-style: italic;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.video-player {
+  width: 100%;
+  height: auto;
   border-radius: 8px;
-}
-
-.loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 4px solid #f3f3f3;
-  border-top: 4px solid #3498db;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin-bottom: 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
 .video-info-panel {
