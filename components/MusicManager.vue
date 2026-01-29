@@ -87,26 +87,36 @@
             </div>
 
             <div class="audio-container">
+              <!-- 載入狀態提示 -->
+              <div 
+                v-if="audioLoadingStatus[track.blobKey]" 
+                class="loading-status"
+                :class="audioLoadingStatus[track.blobKey].type"
+              >
+                <span class="status-icon">{{ audioLoadingStatus[track.blobKey].icon }}</span>
+                <span class="status-text">{{ audioLoadingStatus[track.blobKey].message }}</span>
+                <span v-if="audioLoadingStatus[track.blobKey].progress" class="status-progress">
+                  {{ audioLoadingStatus[track.blobKey].progress }}%
+                </span>
+              </div>
+              
               <audio 
                 :ref="el => setAudioRef(track.blobKey, el)"
                 class="audio-player"
                 controls
-                preload="metadata"
+                preload="none"
+                @play="onAudioPlay(track.blobKey)"
                 @loadstart="onAudioLoadStart(track.blobKey)"
+                @progress="onAudioProgress(track.blobKey, $event)"
+                @canplay="onAudioCanPlay(track.blobKey)"
                 @loadeddata="onAudioLoaded(track.blobKey)"
+                @playing="onAudioPlaying(track.blobKey)"
+                @waiting="onAudioWaiting(track.blobKey)"
                 @error="onAudioError(track.blobKey, $event)"
               >
                 <source :src="getMusicUrl(track.blobKey)" type="audio/mpeg">
                 您的瀏覽器不支援音樂播放。
               </audio>
-              
-              <!-- 載入狀態 -->
-              <div 
-                v-if="loadingMusic.has(track.blobKey)" 
-                class="loading-overlay"
-              >
-                <div class="loading-spinner"></div>
-              </div>
             </div>
           </div>
         </div>
@@ -137,6 +147,7 @@ const loadingMusic = reactive(new Set())
 const cachedMusic = ref([])
 const cacheSize = ref(0)
 const audioRefs = reactive(new Map())
+const audioLoadingStatus = reactive({})
 
 // 音樂分類配置
 const musicCategories = ref([
@@ -501,16 +512,108 @@ const loadExistingCache = async () => {
 }
 
 // 音樂事件處理
+const onAudioPlay = (blobKey) => {
+  console.log(`用戶點擊播放: ${blobKey}`)
+  audioLoadingStatus[blobKey] = {
+    type: 'info',
+    icon: '🔄',
+    message: '準備播放...',
+    progress: null
+  }
+}
+
 const onAudioLoadStart = (blobKey) => {
   console.log(`音樂開始載入: ${blobKey}`)
+  audioLoadingStatus[blobKey] = {
+    type: 'info',
+    icon: '📥',
+    message: '開始下載音樂...',
+    progress: 0
+  }
+}
+
+const onAudioProgress = (blobKey, event) => {
+  const audio = event.target
+  if (audio.buffered.length > 0) {
+    const bufferedEnd = audio.buffered.end(audio.buffered.length - 1)
+    const duration = audio.duration
+    if (duration > 0) {
+      const progress = Math.round((bufferedEnd / duration) * 100)
+      audioLoadingStatus[blobKey] = {
+        type: 'info',
+        icon: '⏬',
+        message: '下載中...',
+        progress: progress
+      }
+    }
+  }
+}
+
+const onAudioCanPlay = (blobKey) => {
+  console.log(`音樂可以播放: ${blobKey}`)
+  audioLoadingStatus[blobKey] = {
+    type: 'success',
+    icon: '✅',
+    message: '下載完成，準備播放',
+    progress: 100
+  }
+  
+  // 2秒後自動隱藏狀態
+  setTimeout(() => {
+    if (audioLoadingStatus[blobKey]?.type === 'success') {
+      delete audioLoadingStatus[blobKey]
+    }
+  }, 2000)
 }
 
 const onAudioLoaded = (blobKey) => {
   console.log(`音樂載入完成: ${blobKey}`)
 }
 
+const onAudioPlaying = (blobKey) => {
+  console.log(`音樂正在播放: ${blobKey}`)
+  // 播放時清除狀態提示
+  delete audioLoadingStatus[blobKey]
+}
+
+const onAudioWaiting = (blobKey) => {
+  console.log(`音樂緩衝中: ${blobKey}`)
+  audioLoadingStatus[blobKey] = {
+    type: 'warning',
+    icon: '⏳',
+    message: '緩衝中...',
+    progress: null
+  }
+}
+
 const onAudioError = (blobKey, event) => {
   console.error(`音樂載入錯誤 (${blobKey}):`, event)
+  const audio = event.target
+  let errorMessage = '載入失敗'
+  
+  if (audio.error) {
+    switch (audio.error.code) {
+      case 1:
+        errorMessage = '載入被中止'
+        break
+      case 2:
+        errorMessage = '網路錯誤'
+        break
+      case 3:
+        errorMessage = '解碼錯誤'
+        break
+      case 4:
+        errorMessage = '不支援的格式'
+        break
+    }
+  }
+  
+  audioLoadingStatus[blobKey] = {
+    type: 'error',
+    icon: '❌',
+    message: errorMessage,
+    progress: null
+  }
 }
 
 // 組件掛載
@@ -764,36 +867,81 @@ onUnmounted(() => {
   position: relative;
 }
 
+.loading-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  animation: slideIn 0.3s ease-out;
+}
+
+.loading-status.info {
+  background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.loading-status.success {
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.loading-status.warning {
+  background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+.loading-status.error {
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.status-text {
+  flex: 1;
+}
+
+.status-progress {
+  font-weight: bold;
+  font-size: 1rem;
+  min-width: 45px;
+  text-align: right;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
 .audio-player {
   width: 100%;
   border-radius: 8px;
-}
-
-.loading-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.9);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 8px;
-}
-
-.loading-spinner {
-  width: 30px;
-  height: 30px;
-  border: 3px solid #f3f3f3;
-  border-top: 3px solid #f093fb;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 .usage-guide {
