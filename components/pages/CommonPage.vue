@@ -17,6 +17,9 @@
             class="search-input" 
             placeholder="篩選 例如 GitHub Gmail 或 example@example.com"
           >
+          <div v-if="searchQuery.trim()" class="search-result-info">
+            符合 {{ filteredAccounts.length }} 筆資料
+          </div>
         </div>
         <button class="btn-primary" @click="openAddModal">
           <span class="icon">➕</span> 新增項目
@@ -384,6 +387,7 @@ useHead({
   flex: 1;
   min-width: 250px;
   max-width: 400px;
+  position: relative;
 }
 
 .search-input {
@@ -404,6 +408,14 @@ useHead({
 
 .search-input::placeholder {
   color: #999;
+}
+
+.search-result-info {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #8ec5fc;
+  font-weight: 500;
+  padding-left: 0.25rem;
 }
 
 .common-grid {
