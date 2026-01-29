@@ -13,7 +13,10 @@ const pages = [
   { id: 'food', name: '食物管理', icon: '🛒', title: '🛒 鋒兄食物管理' },
   { id: 'video', name: '影片庫', icon: '🎥', title: '🎥 鋒兄影片庫' },
   { id: 'gallery', name: '圖片庫', icon: '🖼️', title: '🖼️ 鋒兄圖片庫' },
-  { id: 'music', name: '音樂庫', icon: '🎵', title: '🎵 鋒兄音樂庫' }
+  { id: 'music', name: '音樂庫', icon: '🎵', title: '🎵 鋒兄音樂庫' },
+  { id: 'note', name: '鋒兄筆記', icon: '📝', title: '📝 鋒兄筆記' },
+  { id: 'common', name: '鋒兄常用', icon: '⭐', title: '⭐ 鋒兄常用' },
+  { id: 'bank', name: '銀行統計', icon: '💰', title: '💰 銀行統計' }
 ]
 
 export const useNavigation = () => {
