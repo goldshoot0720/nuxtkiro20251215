@@ -147,6 +147,12 @@ const videos = ref([
     displayName: '鋒兄進化Show🔥',
     fileSize: null,
     poster: null
+  },
+  {
+    blobKey: '鋒兄進化 Show🔥影片保留十五年.mp4',
+    displayName: '鋒兄進化 Show🔥影片保留十五年',
+    fileSize: null,
+    poster: null
   }
 ])
 
@@ -192,7 +198,7 @@ const getVideoUrl = (blobKey) => {
   }
   
   // 回退到 Netlify Blobs URL
-  return `/api/blobs/${blobKey}`
+  return `/api/blobs/${encodeURIComponent(blobKey)}`
 }
 
 // 檢查影片是否已快取
@@ -272,7 +278,7 @@ const preloadVideo = async (blobKey) => {
   
   try {
     // 從 Netlify Blobs 獲取影片
-    const response = await fetch(`/api/blobs/${blobKey}`)
+    const response = await fetch(`/api/blobs/${encodeURIComponent(blobKey)}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     
     const blob = await response.blob()
@@ -347,7 +353,7 @@ const clearVideoCache = async (blobKey) => {
     // 重置影片元素的 src
     const videoEl = videoRefs.get(blobKey)
     if (videoEl) {
-      videoEl.src = `/api/blobs/${blobKey}`
+      videoEl.src = `/api/blobs/${encodeURIComponent(blobKey)}`
     }
     
     updateCacheSize()
@@ -381,7 +387,7 @@ const clearAllCache = async () => {
     videos.value.forEach(video => {
       const videoEl = videoRefs.get(video.blobKey)
       if (videoEl) {
-        videoEl.src = `/api/blobs/${video.blobKey}`
+        videoEl.src = `/api/blobs/${encodeURIComponent(video.blobKey)}`
       }
     })
     

@@ -38,6 +38,23 @@ export const useVideos = () => {
       blobExists: false,
       loadProgress: 0, // 新增：載入進度
       blobStatus: null // 新增：Blob 狀態提示
+    },
+    {
+      blobKey: '鋒兄進化 Show🔥影片保留十五年.mp4',
+      displayName: '鋒兄進化 Show🔥影片保留十五年',
+      fileSize: 26896384, // 25.65MB
+      uploadedAt: '2026-01-30',
+      cached: false,
+      loading: false,
+      loaded: false, // 新增：是否已載入
+      error: false,
+      errorType: null, // 新增：錯誤類型
+      errorDetails: null, // 新增：錯誤詳情
+      caching: false,
+      poster: null,
+      blobExists: false,
+      loadProgress: 0, // 新增：載入進度
+      blobStatus: null // 新增：Blob 狀態提示
     }
   ])
 

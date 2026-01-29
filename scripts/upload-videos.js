@@ -19,7 +19,11 @@ async function uploadVideos() {
     const { getStore } = await import('@netlify/blobs')
     
     // 獲取 Netlify Blobs store
-    const store = getStore('videos')
+    const store = getStore({
+      name: 'videos',
+      siteID: process.env.NETLIFY_SITE_ID || '970c7bab-2d0c-46b4-941f-1f7131995a0f',
+      token: process.env.NETLIFY_AUTH_TOKEN || 'nfp_3ZT1mAumYTM9dQZC3MudUfzV9FmpVhhYa533'
+    })
     
     // 影片檔案對應 - 使用 public/videos 目錄
     const videos = {
@@ -30,6 +34,10 @@ async function uploadVideos() {
       'clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4': {
         localPath: './public/videos/clideo-editor-92eb6755d77b4603a482c25764865a58_7sLjgTgc.mp4',
         displayName: '鋒兄進化Show🔥'
+      },
+      '鋒兄進化 Show🔥影片保留十五年.mp4': {
+        localPath: './public/videos/鋒兄進化 Show🔥影片保留十五年.mp4',
+        displayName: '鋒兄進化 Show🔥影片保留十五年'
       }
     }
     
