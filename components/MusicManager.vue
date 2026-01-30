@@ -5,6 +5,123 @@
       <p>使用 Netlify Blobs 優化音樂載入，支援多語言版本</p>
     </div>
 
+    <!-- 三級選擇器 -->
+    <div class="selector-container">
+      <!-- 第一層：選擇歌曲系列 -->
+      <div class="selector-group">
+        <label class="selector-label">步驟 1: 選擇歌曲系列</label>
+        <select v-model="selectedCategory" class="selector" @change="onCategoryChange">
+          <option value="">請選擇歌曲系列</option>
+          <option value="鋒兄進化Show🔥">鋒兄進化Show🔥</option>
+          <option value="鋒兄進化 Show！🔥進行曲">鋒兄進化 Show！🔥進行曲</option>
+          <option value="鋒兄的傳奇人生">鋒兄的傳奇人生</option>
+          <option value="塗哥水電王子爆紅">塗哥水電王子爆紅</option>
+          <option value="最瞎結婚理由">最瞎結婚理由</option>
+        </select>
+      </div>
+
+      <!-- 第二層：選擇語言 -->
+      <div class="selector-group" v-if="selectedCategory">
+        <label class="selector-label">步驟 2: 選擇語言</label>
+        <select v-model="selectedLanguage" class="selector" @change="onLanguageChange">
+          <option value="">請選擇語言</option>
+          <option value="中文">中文</option>
+          <option value="英語">英語</option>
+          <option value="日語">日語</option>
+          <option value="粤語">粤語</option>
+          <option value="韓語">韓語</option>
+        </select>
+      </div>
+
+      <!-- 第三層：選擇演唱者 (僅中文時顯示) -->
+      <div class="selector-group" v-if="selectedLanguage === '中文'">
+        <label class="selector-label">步驟 3: 選擇演唱者</label>
+        <select v-model="selectedVersion" class="selector" @change="onVersionChange">
+          <option value="">請選擇演唱者</option>
+          <option value="原始音樂">原始音樂</option>
+          <option value="Pekora">Pekora</option>
+          <option value="Donald Trump">Donald Trump</option>
+          <option value="Rose">Rose</option>
+          <option value="Hatsune Miku">Hatsune Miku</option>
+          <option value="Sidhu">Sidhu</option>
+          <option value="SpongeBob SquarePants">SpongeBob SquarePants</option>
+          <option value="Freddie Mercury">Freddie Mercury</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- 播放器區域 -->
+    <div v-if="currentTrack" class="player-section">
+      <div class="now-playing">
+        <h3>🎶 正在播放</h3>
+        <div class="track-details">
+          <div class="detail-item">
+            <span class="detail-label">歌曲系列:</span>
+            <span class="detail-value">{{ selectedCategory }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="detail-label">語言:</span>
+            <span class="detail-value">{{ selectedLanguage }}</span>
+          </div>
+          <div class="detail-item" v-if="selectedVersion">
+            <span class="detail-label">演唱者:</span>
+            <span class="detail-value">{{ selectedVersion }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="audio-container">
+        <div 
+          v-if="audioLoadingStatus[currentTrack.blobKey]" 
+          class="loading-status"
+          :class="audioLoadingStatus[currentTrack.blobKey].type"
+        >
+          <span class="status-icon">{{ audioLoadingStatus[currentTrack.blobKey].icon }}</span>
+          <span class="status-text">{{ audioLoadingStatus[currentTrack.blobKey].message }}</span>
+          <span v-if="audioLoadingStatus[currentTrack.blobKey].progress" class="status-progress">
+            {{ audioLoadingStatus[currentTrack.blobKey].progress }}%
+          </span>
+        </div>
+        
+        <audio 
+          :key="currentTrack.blobKey"
+          ref="mainAudioPlayer"
+          class="audio-player main-player"
+          controls
+          preload="metadata"
+          @play="onAudioPlay(currentTrack.blobKey)"
+          @loadstart="onAudioLoadStart(currentTrack.blobKey)"
+          @progress="onAudioProgress(currentTrack.blobKey, $event)"
+          @canplay="onAudioCanPlay(currentTrack.blobKey)"
+          @loadeddata="onAudioLoaded(currentTrack.blobKey)"
+          @playing="onAudioPlaying(currentTrack.blobKey)"
+          @waiting="onAudioWaiting(currentTrack.blobKey)"
+          @error="onAudioError(currentTrack.blobKey, $event)"
+        >
+          <source :src="getMusicUrl(currentTrack.blobKey)" type="audio/mpeg">
+          您的瀏覽器不支援音樂播放。
+        </audio>
+
+        <!-- 歌詞控制按鈕 -->
+        <div class="lyrics-controls">
+          <button @click="toggleLyrics" class="lyrics-btn">
+            {{ showLyrics ? '👁️ 隱藏歌詞' : '🎵 顯示歌詞' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- 歌詞顯示區域 -->
+      <div v-if="showLyrics" class="lyrics-section">
+        <div class="lyrics-header">
+          <h4>🎶 歌詞</h4>
+        </div>
+        <div class="lyrics-content">
+          <pre v-if="currentLyrics">{{ currentLyrics }}</pre>
+          <p v-else class="lyrics-loading">正在載入歌詞...</p>
+        </div>
+      </div>
+    </div>
+
     <!-- 快取管理控制台 -->
     <div class="cache-controls">
       <div class="cache-stats">
@@ -139,7 +256,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 // 響應式數據
 const loading = ref(false)
@@ -148,6 +265,14 @@ const cachedMusic = ref([])
 const cacheSize = ref(0)
 const audioRefs = reactive(new Map())
 const audioLoadingStatus = reactive({})
+
+// 選擇器狀態
+const selectedCategory = ref('')
+const selectedLanguage = ref('')
+const selectedVersion = ref('')
+const currentTrack = ref(null)
+const showLyrics = ref(false)
+const currentLyrics = ref('')
 
 // 音樂分類配置
 const musicCategories = ref([
@@ -218,12 +343,174 @@ const musicCategories = ref([
       { blobKey: '最瞎結婚理由/最瞎結婚理由 (英語).mp3', displayName: '英語版', fileSize: null },
       { blobKey: '最瞎結婚理由/最瞎結婚理由 (韓語).mp3', displayName: '韓語版', fileSize: null }
     ]
+  },
+  {
+    name: '鋒兄進化 Show！🔥進行曲',
+    tracks: [
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲.mp3', displayName: '原始音樂', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Rose).mp3', displayName: 'Rose 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Donald Trump).mp3', displayName: 'Donald Trump 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Freddie Mercury).mp3', displayName: 'Freddie Mercury 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Hatsune Miku).mp3', displayName: 'Hatsune Miku 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Pekora).mp3', displayName: 'Pekora 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲 (Sidhu).mp3', displayName: 'Sidhu 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲(SpongeBob SquarePants).mp3', displayName: 'SpongeBob 版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲(日語).mp3', displayName: '日語版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲(粵語).mp3', displayName: '粤語版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲(英語).mp3', displayName: '英語版', fileSize: null },
+      { blobKey: '鋒兄進化 Show！🔥進行曲/鋒兄進化 Show！🔥進行曲(韓語).mp3', displayName: '韓語版', fileSize: null }
+    ]
   }
 ])
 
 // 計算總音樂數量
 const totalMusicCount = computed(() => {
   return musicCategories.value.reduce((total, category) => total + category.tracks.length, 0)
+})
+
+// 選擇器處理函數
+const onCategoryChange = () => {
+  selectedLanguage.value = ''
+  selectedVersion.value = ''
+  currentTrack.value = null
+}
+
+const onLanguageChange = () => {
+  selectedVersion.value = ''
+  updateCurrentTrack()
+}
+
+const onVersionChange = () => {
+  updateCurrentTrack()
+}
+
+const updateCurrentTrack = () => {
+  if (!selectedCategory.value || !selectedLanguage.value) {
+    currentTrack.value = null
+    return
+  }
+
+  // 找到對應的音樂分類
+  const category = musicCategories.value.find(c => c.name === selectedCategory.value)
+  if (!category) {
+    console.log('找不到分類:', selectedCategory.value)
+    return
+  }
+
+  let track = null
+
+  if (selectedLanguage.value === '中文') {
+    // 中文需要選擇演唱者
+    if (!selectedVersion.value) {
+      currentTrack.value = null
+      return
+    }
+    // 查找中文版本
+    track = category.tracks.find(t => {
+      // 匹配原始音樂或原版
+      if (selectedVersion.value === '原始音樂') {
+        return t.displayName === '原始音樂' || t.displayName === '原版'
+      }
+      // 匹配演唱者版本
+      return t.displayName === selectedVersion.value || t.displayName === `${selectedVersion.value} 版`
+    })
+  } else {
+    // 其他語言直接找到對應版本
+    const possibleNames = []
+    
+    if (selectedLanguage.value === '英語') {
+      possibleNames.push('英語版', '英文版')
+    } else if (selectedLanguage.value === '日語') {
+      possibleNames.push('日語版', '日文版')
+    } else if (selectedLanguage.value === '粤語') {
+      possibleNames.push('粤語版', '粵語版')
+    } else if (selectedLanguage.value === '韓語') {
+      possibleNames.push('韓語版', '韓文版')
+    }
+    
+    track = category.tracks.find(t => possibleNames.includes(t.displayName))
+  }
+
+  if (track) {
+    console.log('找到音軌:', track)
+    currentTrack.value = track
+  } else {
+    console.log('找不到匹配的音軌, 嘗試:', selectedLanguage.value, selectedVersion.value)
+    console.log('可用音軌:', category.tracks.map(t => t.displayName))
+    currentTrack.value = null
+  }
+}
+
+// 主播放器 ref
+const mainAudioPlayer = ref(null)
+
+// 載入歌詞
+const loadLyrics = async () => {
+  if (!currentTrack.value || !selectedCategory.value) {
+    currentLyrics.value = ''
+    return
+  }
+
+  try {
+    // 構建歌詞檔案路徑
+    let lyricsFile = ''
+    const categoryName = selectedCategory.value
+    
+    if (selectedLanguage.value === '中文') {
+      // 中文版本使用主檔案
+      lyricsFile = `${categoryName}/${categoryName}.txt`
+    } else {
+      // 其他語言版本
+      const langMap = {
+        '英語': '英語',
+        '日語': '日語',
+        '粤語': '粵語',
+        '韓語': '韓語'
+      }
+      const langName = langMap[selectedLanguage.value]
+      if (langName) {
+        lyricsFile = `${categoryName}/${categoryName} ${langName}.txt`
+      }
+    }
+
+    if (lyricsFile) {
+      const response = await fetch(`/music/${encodeURIComponent(lyricsFile)}`)
+      if (response.ok) {
+        currentLyrics.value = await response.text()
+      } else {
+        currentLyrics.value = '歌詞檔案不存在'
+      }
+    }
+  } catch (error) {
+    console.error('載入歌詞失敗:', error)
+    currentLyrics.value = '無法載入歌詞'
+  }
+}
+
+// 切換歌詞顯示
+const toggleLyrics = () => {
+  showLyrics.value = !showLyrics.value
+  if (showLyrics.value && !currentLyrics.value) {
+    loadLyrics()
+  }
+}
+
+// 監聴音軌變化
+watch(currentTrack, async (newTrack, oldTrack) => {
+  if (newTrack) {
+    console.log('音軌變化:', newTrack.displayName, newTrack.blobKey)
+    // 等待 DOM 更新
+    await nextTick()
+    // 強制重新載入音訊
+    if (mainAudioPlayer.value) {
+      mainAudioPlayer.value.load()
+      console.log('已載入新音軌')
+    }
+    // 載入歌詞
+    if (showLyrics.value) {
+      await loadLyrics()
+    }
+  }
 })
 
 // IndexedDB 快取管理
@@ -267,7 +554,12 @@ const getMusicUrl = (blobKey) => {
     return cached.blobUrl
   }
   
-  // 回退到 Netlify Blobs URL
+  // 本地開發模式：直接使用 public 資料夾中的檔案
+  if (process.dev || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return `/music/${encodeURIComponent(blobKey)}`
+  }
+  
+  // 生產環境：回退到 Netlify Blobs URL
   return `/api/blobs/music/${encodeURIComponent(blobKey)}`
 }
 
@@ -660,6 +952,172 @@ onUnmounted(() => {
 .music-info h3 {
   margin-bottom: 1rem;
   font-size: 1.8rem;
+}
+
+/* 選擇器樣式 */
+.selector-container {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.selector-group {
+  margin-bottom: 1.5rem;
+}
+
+.selector-group:last-child {
+  margin-bottom: 0;
+}
+
+.selector-label {
+  display: block;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+.selector {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 2px solid #e0c3fc;
+  border-radius: 8px;
+  font-size: 1rem;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.selector:hover {
+  border-color: #f093fb;
+}
+
+.selector:focus {
+  outline: none;
+  border-color: #f093fb;
+  box-shadow: 0 0 0 3px rgba(240, 147, 251, 0.2);
+}
+
+/* 播放器區域 */
+.player-section {
+  background: white;
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  margin-bottom: 2rem;
+}
+
+.now-playing {
+  margin-bottom: 1.5rem;
+}
+
+.now-playing h3 {
+  color: #2c3e50;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.track-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  background: #f8f9fa;
+  padding: 1rem;
+  border-radius: 8px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.detail-value {
+  font-size: 1.1rem;
+  color: #2c3e50;
+  font-weight: 600;
+}
+
+.main-player {
+  width: 100%;
+  margin-top: 1rem;
+}
+
+/* 歌詞控制 */
+.lyrics-controls {
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.lyrics-btn {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.lyrics-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.lyrics-btn:active {
+  transform: translateY(0);
+}
+
+/* 歌詞區域 */
+.lyrics-section {
+  margin-top: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 2px solid #e0c3fc;
+}
+
+.lyrics-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 1rem;
+  color: white;
+}
+
+.lyrics-header h4 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.lyrics-content {
+  padding: 1.5rem;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.lyrics-content pre {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  font-size: 1rem;
+  line-height: 1.8;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: #2c3e50;
+}
+
+.lyrics-loading {
+  text-align: center;
+  color: #666;
+  font-style: italic;
 }
 
 .cache-controls {
