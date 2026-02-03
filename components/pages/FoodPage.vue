@@ -100,6 +100,13 @@
           <span class="expiry-warning" v-if="expiringFoods.length > 0">
             {{ expiringFoods.length }} 項即將到期
           </span>
+          <button
+            v-if="foods.length > 0"
+            @click="exportFoodsCsv"
+            class="auth-btn export"
+          >
+            匯出 CSV
+          </button>
         </div>
       </div>
       
@@ -199,6 +206,29 @@ const { formatDate, getFoodStatusClass, getExpiryClass } = useFormatters()
 onMounted(() => {
   loadFoods()
 })
+
+const exportFoodsCsv = () => {
+  const header = ['食物名稱', '數量', '價格(NT$)', '購買商店', '到期日期', '照片網址']
+  const rows = sortedFoods.value.map(food => [
+    food.name || '',
+    food.amount ?? '',
+    food.price ?? '',
+    food.shop || '',
+    food.todate || '',
+    food.photo || ''
+  ])
+  const bom = '\uFEFF'
+  const csvContent = bom + [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `鋒兄食物管理_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 const handleSubmit = () => {
   if (editingFood.value) {
@@ -307,6 +337,17 @@ defineExpose({
 
 .auth-btn.secondary:hover {
   background: #7f8c8d;
+}
+
+.auth-btn.export {
+  background: #27ae60;
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.auth-btn.export:hover {
+  background: #219a52;
 }
 
 .auth-btn:disabled {

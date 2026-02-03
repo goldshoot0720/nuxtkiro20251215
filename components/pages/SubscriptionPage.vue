@@ -98,6 +98,13 @@
         <div class="summary">
           <span class="total-count">共 {{ subscriptions.length }} 個項目</span>
           <span class="total-cost">每月總計：NT$ {{ totalMonthlyCost }}</span>
+          <button
+            v-if="subscriptions.length > 0"
+            @click="exportSubscriptionsCsv"
+            class="auth-btn export"
+          >
+            匯出 CSV
+          </button>
         </div>
       </div>
       
@@ -190,6 +197,29 @@ const { formatDate, getDateClass } = useFormatters()
 onMounted(() => {
   loadSubscriptions()
 })
+
+const exportSubscriptionsCsv = () => {
+  const header = ['服務名稱', '網站網址', '帳號/Email', '月費(NT$)', '下次扣款日期', '備註']
+  const rows = sortedSubscriptions.value.map(sub => [
+    sub.name || '',
+    sub.site || '',
+    sub.account || '',
+    sub.price ?? '',
+    sub.nextdate || '',
+    sub.note || ''
+  ])
+  const bom = '\uFEFF'
+  const csvContent = bom + [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `鋒兄訂閱管理_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
 
 const handleSubmit = () => {
   if (editingSubscription.value) {
@@ -299,6 +329,17 @@ defineExpose({
 
 .auth-btn.secondary:hover {
   background: #7f8c8d;
+}
+
+.auth-btn.export {
+  background: #27ae60;
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.auth-btn.export:hover {
+  background: #219a52;
 }
 
 .auth-btn:disabled {
