@@ -33,16 +33,25 @@
 <script setup>
 defineProps({
   isOpen: { type: Boolean, default: false },
-  currentPage: { type: String, default: 'dashboard' },
+  currentPage: { type: String, default: 'home' },
   pages: { 
     type: Array, 
     default: () => [
-      { id: 'dashboard', name: '儀表板', icon: '📊' },
-      { id: 'subscription', name: '訂閱管理', icon: '💳' },
-      { id: 'food', name: '食物管理', icon: '🛒' },
-      { id: 'video', name: '影片庫', icon: '🎥' },
-      { id: 'gallery', name: '圖片庫', icon: '🖼️' },
-      { id: 'music', name: '音樂庫', icon: '🎵' }
+      { id: 'home', name: '鋒兄首頁', icon: '🏠' },
+      { id: 'dashboard', name: '鋒兄儀表', icon: '📊' },
+      { id: 'subscription', name: '鋒兄訂閱', icon: '💳' },
+      { id: 'food', name: '鋒兄食品', icon: '🛒' },
+      { id: 'note', name: '鋒兄筆記', icon: '📝' },
+      { id: 'common', name: '鋒兄常用', icon: '⭐' },
+      { id: 'gallery', name: '鋒兄圖片', icon: '🖼️' },
+      { id: 'video', name: '鋒兄影片', icon: '🎥' },
+      { id: 'music', name: '鋒兄音樂', icon: '🎵' },
+      { id: 'document', name: '鋒兄文件', icon: '📄' },
+      { id: 'podcast', name: '鋒兄播客', icon: '🎙️' },
+      { id: 'bank', name: '鋒兄銀行', icon: '💰' },
+      { id: 'routine', name: '鋒兄例行', icon: '📅' },
+      { id: 'settings', name: '鋒兄設定', icon: '⚙️' },
+      { id: 'about', name: '鋒兄關於', icon: 'ℹ️' }
     ]
   }
 })
