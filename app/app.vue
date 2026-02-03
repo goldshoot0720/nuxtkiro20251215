@@ -72,10 +72,21 @@
             v-if="currentPage === 'note'"
           />
 
-          <!-- 鋒兄常用 -->
           <CommonPage 
             v-if="currentPage === 'common'"
           />
+
+          <PageContainer
+            v-if="placeholderConfig"
+            :title="placeholderConfig.title"
+            :icon="placeholderConfig.icon"
+          >
+            <EmptyState
+              :icon="placeholderConfig.icon"
+              title="功能建置中"
+              :description="placeholderConfig.description"
+            />
+          </PageContainer>
         </main>
       </div>
     </div>
@@ -137,6 +148,8 @@ import BankPage from '../components/pages/BankPage.vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ToastContainer from '../components/ui/ToastContainer.vue'
+import PageContainer from '../components/layout/PageContainer.vue'
+import EmptyState from '../components/ui/EmptyState.vue'
 
 // 使用 composables
 import { useSubscriptions } from '../composables/useSubscriptions'
@@ -180,6 +193,15 @@ const {
 const subscriptionsCount = computed(() => subscriptions.value.length)
 const foodsCount = computed(() => foods.value.length)
 const isDevelopment = computed(() => false) // 設為 true 以啟用滾動調試
+const placeholderPages = {
+  home: { title: '鋒兄首頁', icon: '🏠', description: '首頁內容正在準備中。' },
+  document: { title: '鋒兄文件', icon: '📄', description: '文件管理功能正在準備中。' },
+  podcast: { title: '鋒兄播客', icon: '🎙️', description: '播客內容正在準備中。' },
+  routine: { title: '鋒兄例行', icon: '📅', description: '例行管理功能正在準備中。' },
+  settings: { title: '鋒兄設定', icon: '⚙️', description: '設定功能正在準備中。' },
+  about: { title: '鋒兄關於', icon: 'ℹ️', description: '關於頁面內容正在準備中。' }
+}
+const placeholderConfig = computed(() => placeholderPages[currentPage.value] || null)
 
 // 生命週期
 onMounted(async () => {

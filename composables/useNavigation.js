@@ -3,20 +3,26 @@
 import { ref, computed } from 'vue'
 
 // 共享狀態
-const currentPage = ref('dashboard')
+const currentPage = ref('home')
 const sidebarOpen = ref(false)
 
 // 頁面配置
 const pages = [
-  { id: 'dashboard', name: '儀表板', icon: '📊', title: '🏢 鋒兄儀表板' },
-  { id: 'subscription', name: '訂閱管理', icon: '💳', title: '💳 鋒兄訂閱管理' },
-  { id: 'food', name: '食物管理', icon: '🛒', title: '🛒 鋒兄食物管理' },
-  { id: 'video', name: '影片庫', icon: '🎥', title: '🎥 鋒兄影片庫' },
-  { id: 'gallery', name: '圖片庫', icon: '🖼️', title: '🖼️ 鋒兄圖片庫' },
-  { id: 'music', name: '音樂庫', icon: '🎵', title: '🎵 鋒兄音樂庫' },
+  { id: 'home', name: '鋒兄首頁', icon: '🏠', title: '🏠 鋒兄首頁' },
+  { id: 'dashboard', name: '鋒兄儀表', icon: '📊', title: '📊 鋒兄儀表' },
+  { id: 'subscription', name: '鋒兄訂閱', icon: '💳', title: '💳 鋒兄訂閱' },
+  { id: 'food', name: '鋒兄食品', icon: '🛒', title: '🛒 鋒兄食品' },
   { id: 'note', name: '鋒兄筆記', icon: '📝', title: '📝 鋒兄筆記' },
   { id: 'common', name: '鋒兄常用', icon: '⭐', title: '⭐ 鋒兄常用' },
-  { id: 'bank', name: '銀行統計', icon: '💰', title: '💰 銀行統計' }
+  { id: 'gallery', name: '鋒兄圖片', icon: '🖼️', title: '🖼️ 鋒兄圖片' },
+  { id: 'video', name: '鋒兄影片', icon: '🎥', title: '🎥 鋒兄影片' },
+  { id: 'music', name: '鋒兄音樂', icon: '🎵', title: '🎵 鋒兄音樂' },
+  { id: 'document', name: '鋒兄文件', icon: '📄', title: '📄 鋒兄文件' },
+  { id: 'podcast', name: '鋒兄播客', icon: '🎙️', title: '🎙️ 鋒兄播客' },
+  { id: 'bank', name: '鋒兄銀行', icon: '💰', title: '💰 鋒兄銀行' },
+  { id: 'routine', name: '鋒兄例行', icon: '📅', title: '📅 鋒兄例行' },
+  { id: 'settings', name: '鋒兄設定', icon: '⚙️', title: '⚙️ 鋒兄設定' },
+  { id: 'about', name: '鋒兄關於', icon: 'ℹ️', title: 'ℹ️ 鋒兄關於' }
 ]
 
 export const useNavigation = () => {
