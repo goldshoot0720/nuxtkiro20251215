@@ -225,7 +225,7 @@ const exportFoodsCsv = () => {
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = `鋒兄食物管理_${new Date().toISOString().slice(0, 10)}.csv`
+  link.download = 'supabase-food.csv'
   link.click()
   URL.revokeObjectURL(url)
 }
