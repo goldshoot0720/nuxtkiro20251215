@@ -1,11 +1,11 @@
 <template>
   <div class="video-manager-container">
     <h1 class="page-brand-title">鋒兄影片庫</h1>
-    
+
     <!-- 影片管理資訊 -->
     <div class="video-info">
       <h3>📹 影片雲端管理</h3>
-      <p>使用 Netlify Blobs 儲存影片，支援本地快取離線播放</p>
+      <p>使用 Supabase Storage 儲存影片，支援本地快取離線播放</p>
       <div class="video-stats">
         <div class="stat-item">
           <span class="stat-label">影片數量:</span>
@@ -22,15 +22,14 @@
       </div>
     </div>
 
-    <!-- Netlify Blobs 上傳指南 -->
-    <div class="upload-guide" v-if="videoList.some(v => !v.blobExists)">
+    <!-- 上傳指南 -->
+    <div class="upload-guide" v-if="videoList.some(v => !v.exists)">
       <h3>📤 影片上傳指南</h3>
-      <p>部分影片尚未上傳到 Netlify Blobs，請依照以下步驟：</p>
+      <p>部分影片尚未上傳到 Supabase Storage，請依照以下步驟：</p>
       <ol>
-        <li>將影片檔案放到 <code>public/videos/</code> 資料夾</li>
-        <li>執行上傳命令：<code>npm run upload-videos</code></li>
-        <li>或使用 Netlify CLI：<code>netlify blobs:set videos [blob-key] -i [file-path]</code></li>
-        <li>點擊 "🔄 檢查 Netlify Blobs" 確認上傳狀態</li>
+        <li>前往 Supabase Dashboard → Storage → <code>videos</code> bucket</li>
+        <li>上傳影片檔案（確認 bucket 設為 public）</li>
+        <li>點擊 "🔄 檢查 Storage 狀態" 確認上傳狀態</li>
       </ol>
     </div>
 
@@ -39,10 +38,10 @@
       <h3>🗂️ 快取管理</h3>
       <div class="control-buttons">
         <button
-          @click="checkBlobsStatus"
+          @click="checkStorageStatus"
           class="cache-btn refresh"
         >
-          🔄 檢查 Netlify Blobs
+          🔄 檢查 Storage 狀態
         </button>
         <button
           @click="preloadAllVideos"
@@ -73,27 +72,27 @@
     <div class="video-list">
       <h3>🎬 影片清單</h3>
       <div class="videos-grid">
-        <div 
-          v-for="video in videoList" 
-          :key="video.blobKey"
+        <div
+          v-for="video in videoList"
+          :key="video.storageKey"
           class="video-card"
         >
           <div class="video-header">
             <h4>{{ video.displayName }}</h4>
             <div class="video-status">
-              <span v-if="video.blobExists" class="status-badge blob-exists">Blob 已上傳</span>
-              <span v-else class="status-badge blob-missing">Blob 未上傳</span>
+              <span v-if="video.exists" class="status-badge blob-exists">已上傳</span>
+              <span v-else class="status-badge blob-missing">未上傳</span>
               <span v-if="video.cached" class="status-badge cached">已快取</span>
               <span v-else class="status-badge not-cached">未快取</span>
             </div>
           </div>
-          
+
           <div class="video-player-container">
             <!-- 延遲載入預覽 -->
-            <div 
+            <div
               v-if="!video.loaded && !video.loading && !video.error"
               class="video-lazy-preview"
-              @click="loadVideo(video.blobKey)"
+              @click="loadVideo(video.storageKey)"
             >
               <div class="lazy-preview-content">
                 <div class="preview-poster" v-if="video.poster">
@@ -113,25 +112,25 @@
             </div>
 
             <!-- 影片播放器 -->
-            <video 
+            <video
               v-if="video.loaded"
-              :ref="'video-' + video.blobKey"
+              :ref="'video-' + video.storageKey"
               class="video-player"
               controls
               preload="metadata"
               :poster="video.poster"
-              @loadstart="onVideoLoadStart(video.blobKey)"
-              @loadeddata="onVideoLoaded(video.blobKey)"
-              @error="onVideoError(video.blobKey, $event)"
+              @loadstart="onVideoLoadStart(video.storageKey)"
+              @loadeddata="onVideoLoaded(video.storageKey)"
+              @error="onVideoError(video.storageKey, $event)"
             >
-              <source :src="getVideoUrl(video.blobKey)" type="video/mp4">
+              <source :src="getVideoUrl(video.storageKey)" type="video/mp4">
               您的瀏覽器不支援影片播放。
             </video>
-            
+
             <!-- 載入中覆蓋層 -->
             <div v-if="video.loading" class="video-loading-overlay">
               <div class="loading-spinner"></div>
-              <p>正在從 Netlify Blobs 載入影片...</p>
+              <p>正在從 Supabase Storage 載入影片...</p>
               <div class="loading-progress">
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: video.loadProgress + '%' }"></div>
@@ -139,34 +138,34 @@
                 <span class="progress-text">{{ video.loadProgress }}%</span>
               </div>
             </div>
-            
-            <!-- Netlify Blobs 錯誤覆蓋層 -->
+
+            <!-- 錯誤覆蓋層 -->
             <div v-if="video.error" class="video-error-overlay">
               <div class="error-icon">⚠️</div>
               <div class="error-content">
-                <h4>Netlify Blobs 載入失敗</h4>
+                <h4>影片載入失敗</h4>
                 <p class="error-message">{{ getErrorMessage(video.errorType) }}</p>
                 <div class="error-details" v-if="video.errorDetails">
                   <p><strong>錯誤詳情:</strong> {{ video.errorDetails }}</p>
-                  <p><strong>影片檔案:</strong> {{ video.blobKey }}</p>
-                  <p><strong>Blob 狀態:</strong> {{ video.blobExists ? '已上傳' : '未上傳' }}</p>
+                  <p><strong>影片檔案:</strong> {{ video.storageKey }}</p>
+                  <p><strong>狀態:</strong> {{ video.exists ? '已上傳' : '未上傳' }}</p>
                 </div>
                 <div class="error-actions">
                   <button
-                    @click="retryVideo(video.blobKey)"
+                    @click="retryVideo(video.storageKey)"
                     class="retry-btn primary"
                   >
                     🔄 重新載入
                   </button>
                   <button
-                    @click="checkSingleBlobStatus(video.blobKey)"
+                    @click="checkSingleStatus(video.storageKey)"
                     class="retry-btn secondary"
                   >
-                    🔍 檢查 Blob 狀態
+                    🔍 檢查狀態
                   </button>
                   <button
-                    v-if="!video.blobExists"
-                    @click="showUploadInstructions(video.blobKey)"
+                    v-if="!video.exists"
+                    @click="showUploadInstructions(video.storageKey)"
                     class="retry-btn info"
                   >
                     📤 查看上傳說明
@@ -175,24 +174,24 @@
               </div>
             </div>
 
-            <!-- Netlify Blobs 狀態提示 -->
-            <div v-if="video.blobStatus" class="blob-status-notification" :class="video.blobStatus.type">
+            <!-- 狀態提示 -->
+            <div v-if="video.statusInfo" class="blob-status-notification" :class="video.statusInfo.type">
               <div class="status-icon">
-                {{ video.blobStatus.type === 'success' ? '✅' : video.blobStatus.type === 'warning' ? '⚠️' : '❌' }}
+                {{ video.statusInfo.type === 'success' ? '✅' : video.statusInfo.type === 'warning' ? '⚠️' : video.statusInfo.type === 'error' ? '❌' : 'ℹ️' }}
               </div>
               <div class="status-message">
-                <p>{{ video.blobStatus.message }}</p>
-                <small v-if="video.blobStatus.details">{{ video.blobStatus.details }}</small>
+                <p>{{ video.statusInfo.message }}</p>
+                <small v-if="video.statusInfo.details">{{ video.statusInfo.details }}</small>
               </div>
-              <button @click="clearBlobStatus(video.blobKey)" class="status-close">✕</button>
+              <button @click="clearStatusInfo(video.storageKey)" class="status-close">✕</button>
             </div>
           </div>
-          
+
           <div class="video-info-panel">
             <div class="video-details">
               <div class="detail-row">
                 <span class="detail-label">檔案名稱:</span>
-                <span class="detail-value">{{ video.blobKey }}</span>
+                <span class="detail-value">{{ video.storageKey }}</span>
               </div>
               <div class="detail-row" v-if="video.fileSize">
                 <span class="detail-label">檔案大小:</span>
@@ -203,11 +202,11 @@
                 <span class="detail-value">{{ formatDate(video.uploadedAt) }}</span>
               </div>
             </div>
-            
+
             <div class="video-actions">
               <button
                 v-if="!video.cached"
-                @click="cacheVideo(video.blobKey)"
+                @click="cacheVideo(video.storageKey)"
                 class="action-btn cache"
                 :disabled="video.caching"
               >
@@ -215,13 +214,13 @@
               </button>
               <button
                 v-if="video.cached"
-                @click="clearVideoCache(video.blobKey)"
+                @click="clearVideoCache(video.storageKey)"
                 class="action-btn clear-cache"
               >
                 🗑️ 清除此快取
               </button>
               <button
-                @click="downloadVideo(video.blobKey, video.displayName)"
+                @click="downloadVideo(video.storageKey, video.displayName)"
                 class="action-btn download"
               >
                 💾 下載影片
@@ -240,28 +239,28 @@
           <div class="feature-icon">📦</div>
           <div class="feature-content">
             <h4>本地快取</h4>
-            <p>影片可以快取到本地 IndexedDB，實現離線播放功能</p>
+            <p>影片可以快取到本地，實現離線播放功能</p>
           </div>
         </div>
         <div class="feature-item">
           <div class="feature-icon">⚡</div>
           <div class="feature-content">
             <h4>延遲載入</h4>
-            <p>影片採用延遲載入技術，點擊時才從 Netlify Blobs 載入，節省頻寬</p>
+            <p>影片採用延遲載入技術，點擊時才從 Supabase Storage 載入，節省頻寬</p>
           </div>
         </div>
         <div class="feature-item">
           <div class="feature-icon">🔒</div>
           <div class="feature-content">
             <h4>安全存儲</h4>
-            <p>所有影片存儲在 Netlify Blobs 雲端，透過 HTTPS 安全傳輸</p>
+            <p>所有影片存儲在 Supabase Storage 雲端，透過 HTTPS 安全傳輸</p>
           </div>
         </div>
         <div class="feature-item">
           <div class="feature-icon">🛠️</div>
           <div class="feature-content">
             <h4>智能錯誤處理</h4>
-            <p>自動檢測 Netlify Blobs 狀態，提供詳細錯誤信息和解決方案</p>
+            <p>自動檢測儲存狀態，提供詳細錯誤信息和解決方案</p>
           </div>
         </div>
         <div class="feature-item">
@@ -298,27 +297,27 @@ const {
   preloadAllVideos,
   clearAllCache,
   checkCacheStatus,
-  checkBlobsStatus,
+  checkStorageStatus,
   downloadVideo,
   loadVideo,
-  checkSingleBlobStatus,
+  checkSingleStatus,
   showUploadInstructions,
-  clearBlobStatus,
+  clearStatusInfo,
   getErrorMessage
 } = useVideos()
 
 const { formatFileSize, formatCacheSize, formatDate } = useFormatters()
 
-// 組件掛載時檢查 Blobs 狀態
+// 組件掛載時檢查 Storage 狀態
 onMounted(() => {
-  checkBlobsStatus()
+  checkStorageStatus()
 })
 
 // 暴露方法給父組件
 defineExpose({
   videoList,
   cachedVideos,
-  checkBlobsStatus
+  checkStorageStatus
 })
 </script>
 
@@ -825,7 +824,7 @@ defineExpose({
   background: #e67e22;
 }
 
-/* Blob 狀態通知 */
+/* 狀態通知 */
 .blob-status-notification {
   position: absolute;
   top: 1rem;
@@ -1048,166 +1047,135 @@ defineExpose({
 
 /* ===== 響應式設計優化 ===== */
 
-/* 桌面端優化 */
 @media (min-width: 1200px) {
   .video-manager-container {
     max-width: 1400px;
     margin: 0 auto;
   }
-  
   .videos-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2.5rem;
   }
-  
   .video-card {
     padding: 0;
   }
-  
   .video-info-panel {
     padding: 2rem;
   }
-  
   .page-brand-title {
     font-size: 2rem;
   }
-  
   .tech-features {
     grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
 
-/* 平板端優化 - Redmi Pad SE 8.7 */
 @media (min-width: 769px) and (max-width: 1199px) {
   .video-manager-container {
     max-width: 1000px;
     margin: 0 auto;
   }
-  
   .videos-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 2rem;
   }
-  
   .video-info-panel {
     padding: 1.8rem;
   }
-  
   .control-buttons {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
-  
   .page-brand-title {
     font-size: 1.8rem;
   }
-  
   .tech-features {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* 平板橫向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
   .videos-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  
   .video-card {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0;
   }
-  
   .video-player-container {
     grid-column: 1;
   }
-  
   .video-info-panel {
     grid-column: 2;
     border-left: 1px solid #e1e8ed;
   }
 }
 
-/* 平板直向模式 */
 @media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
   .videos-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  
   .video-card {
     max-width: 700px;
     margin: 0 auto;
   }
 }
 
-/* 手機端通用 */
 @media (max-width: 768px) {
   .videos-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
-  
   .video-stats {
     flex-direction: column;
     gap: 1rem;
     text-align: center;
   }
-  
   .control-buttons {
     flex-direction: column;
     gap: 1rem;
   }
-  
   .cache-btn {
     width: 100%;
     padding: 1rem;
   }
-  
   .video-header {
     flex-direction: column;
     gap: 1rem;
     align-items: flex-start;
   }
-  
   .video-status {
     flex-wrap: wrap;
     gap: 0.8rem;
   }
-  
   .detail-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;
   }
-  
   .detail-value {
     text-align: left;
     word-break: break-all;
   }
-  
   .video-actions {
     flex-direction: column;
     gap: 0.8rem;
   }
-  
   .action-btn {
     min-width: auto;
     padding: 0.8rem;
   }
-  
   .tech-features {
     grid-template-columns: 1fr;
     gap: 1.2rem;
   }
-  
   .page-brand-title {
     font-size: 1.5rem;
   }
 }
 
-/* Samsung Galaxy A53 直向 */
 @media (max-width: 480px) and (orientation: portrait) {
   .video-info,
   .cache-controls,
@@ -1216,58 +1184,46 @@ defineExpose({
     padding: 1.2rem;
     margin-bottom: 1.5rem;
   }
-  
   .video-player-container {
     padding: 1rem;
   }
-  
   .video-info-panel {
     padding: 1.2rem;
   }
-  
   .video-stats {
     gap: 0.8rem;
   }
-  
   .stat-item {
     padding: 0.8rem;
     border-radius: 8px;
     background: rgba(255, 255, 255, 0.1);
   }
-  
   .cache-btn {
     padding: 0.8rem 1rem;
     font-size: 0.9rem;
   }
-  
   .page-brand-title {
     font-size: 1.4rem;
   }
-  
   .video-header h4 {
     font-size: 1.1rem;
   }
-  
   .status-badge {
     font-size: 0.75rem;
     padding: 0.2rem 0.6rem;
   }
-  
   .action-btn {
     padding: 0.6rem;
     font-size: 0.85rem;
   }
-  
   .feature-item {
     padding: 0.8rem;
   }
-  
   .feature-icon {
     font-size: 1.8rem;
   }
 }
 
-/* Samsung Galaxy A53 橫向 */
 @media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
   .video-info,
   .cache-controls,
@@ -1276,49 +1232,40 @@ defineExpose({
     padding: 1rem;
     margin-bottom: 1rem;
   }
-  
   .video-player-container {
     padding: 0.8rem;
   }
-  
   .video-info-panel {
     padding: 1rem;
   }
-  
   .video-stats {
     flex-direction: row;
     justify-content: space-around;
     gap: 1rem;
   }
-  
   .control-buttons {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 0.8rem;
   }
-  
   .video-header {
     flex-direction: row;
     justify-content: space-between;
     align-items: center;
   }
-  
   .detail-row {
     flex-direction: row;
     justify-content: space-between;
   }
-  
   .video-actions {
     flex-direction: row;
     gap: 0.6rem;
   }
-  
   .page-brand-title {
     font-size: 1.2rem;
   }
 }
 
-/* iPhone SE2 直向 */
 @media (max-width: 375px) and (orientation: portrait) {
   .video-info,
   .cache-controls,
@@ -1327,78 +1274,61 @@ defineExpose({
     padding: 1rem;
     margin-bottom: 1.2rem;
   }
-  
   .video-player-container {
     padding: 0.8rem;
   }
-  
   .video-info-panel {
     padding: 1rem;
   }
-  
   .video-stats {
     gap: 0.6rem;
   }
-  
   .stat-item {
     padding: 0.6rem;
     font-size: 0.9rem;
   }
-  
   .cache-btn {
     padding: 0.6rem 0.8rem;
     font-size: 0.85rem;
   }
-  
   .page-brand-title {
     font-size: 1.3rem;
   }
-  
   .video-header h4 {
     font-size: 1rem;
   }
-  
   .status-badge {
     font-size: 0.7rem;
     padding: 0.15rem 0.5rem;
   }
-  
   .detail-row {
     gap: 0.2rem;
   }
-  
   .detail-label {
     font-size: 0.85rem;
   }
-  
   .detail-value {
     font-size: 0.85rem;
   }
-  
   .action-btn {
     padding: 0.5rem;
     font-size: 0.8rem;
   }
-  
   .feature-item {
     padding: 0.6rem;
     gap: 0.8rem;
   }
-  
   .feature-icon {
     font-size: 1.6rem;
   }
-  
   .feature-content h4 {
     font-size: 0.95rem;
   }
-  
   .feature-content p {
     font-size: 0.85rem;
   }
 }
 
-/* iPhone SE2 橫向 */
 @media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
   .video-info,
   .cache-controls,
@@ -1407,42 +1337,34 @@ defineExpose({
     padding: 0.8rem;
     margin-bottom: 0.8rem;
   }
-  
   .video-player-container {
     padding: 0.6rem;
   }
-  
   .video-info-panel {
     padding: 0.8rem;
   }
-  
   .video-stats {
     flex-direction: row;
     gap: 0.8rem;
   }
-  
   .control-buttons {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 0.5rem;
   }
-  
   .cache-btn {
     padding: 0.4rem 0.6rem;
     font-size: 0.8rem;
   }
-  
   .page-brand-title {
     font-size: 1.1rem;
   }
-  
   .tech-features {
     grid-template-columns: repeat(2, 1fr);
     gap: 0.8rem;
   }
 }
 
-/* 超小螢幕 */
 @media (max-width: 320px) {
   .video-info,
   .cache-controls,
@@ -1451,52 +1373,41 @@ defineExpose({
     padding: 0.8rem;
     margin-bottom: 1rem;
   }
-  
   .video-player-container {
     padding: 0.6rem;
   }
-  
   .video-info-panel {
     padding: 0.8rem;
   }
-  
   .video-stats {
     gap: 0.5rem;
   }
-  
   .stat-item {
     padding: 0.5rem;
     font-size: 0.8rem;
   }
-  
   .cache-btn {
     padding: 0.5rem 0.6rem;
     font-size: 0.8rem;
   }
-  
   .page-brand-title {
     font-size: 1.1rem;
   }
-  
   .video-header h4 {
     font-size: 0.9rem;
   }
-  
   .status-badge {
     font-size: 0.65rem;
     padding: 0.1rem 0.4rem;
   }
-  
   .action-btn {
     padding: 0.4rem;
     font-size: 0.75rem;
   }
-  
   .feature-item {
     padding: 0.5rem;
     gap: 0.6rem;
   }
-  
   .feature-icon {
     font-size: 1.4rem;
   }

@@ -156,32 +156,65 @@ export interface Database {
         Row: {
           id: number
           title: string
-          content: string
-          category: string
-          tags: string[] | null
-          is_published: boolean
+          content: string | null
+          category: string | null
+          ref: string | null
+          newDate: string
+          url1: string | null
+          url2: string | null
+          url3: string | null
+          file1: string | null
+          file1name: string | null
+          file1type: string | null
+          file2: string | null
+          file2name: string | null
+          file2type: string | null
+          file3: string | null
+          file3name: string | null
+          file3type: string | null
           created_at: string
-          updated_at: string
         }
         Insert: {
           id?: number
           title: string
-          content: string
-          category: string
-          tags?: string[] | null
-          is_published?: boolean
+          content?: string | null
+          category?: string | null
+          ref?: string | null
+          newDate?: string
+          url1?: string | null
+          url2?: string | null
+          url3?: string | null
+          file1?: string | null
+          file1name?: string | null
+          file1type?: string | null
+          file2?: string | null
+          file2name?: string | null
+          file2type?: string | null
+          file3?: string | null
+          file3name?: string | null
+          file3type?: string | null
           created_at?: string
-          updated_at?: string
         }
         Update: {
           id?: number
           title?: string
-          content?: string
-          category?: string
-          tags?: string[] | null
-          is_published?: boolean
+          content?: string | null
+          category?: string | null
+          ref?: string | null
+          newDate?: string
+          url1?: string | null
+          url2?: string | null
+          url3?: string | null
+          file1?: string | null
+          file1name?: string | null
+          file1type?: string | null
+          file2?: string | null
+          file2name?: string | null
+          file2type?: string | null
+          file3?: string | null
+          file3name?: string | null
+          file3type?: string | null
           created_at?: string
-          updated_at?: string
         }
       }
     }

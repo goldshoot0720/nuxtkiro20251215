@@ -1,14 +1,12 @@
 <template>
   <div class="food-management">
-    <div class="user-info">
-      <h3 class="page-brand-title">鋒兄食物庫存管理系統</h3>
-      <p>管理您的食物庫存，追蹤購買記錄</p>
-    </div>
-
     <!-- 新增食物 -->
     <div class="add-food">
-      <h3>新增食物</h3>
-      <div class="food-form">
+      <h3 class="collapsible-header" @click="showAddForm = !showAddForm">
+        <span>{{ editingFood ? '編輯食物' : '新增食物' }}</span>
+        <span class="collapse-icon" :class="{ open: showAddForm }">▶</span>
+      </h3>
+      <div class="food-form" v-show="showAddForm">
         <div class="form-row">
           <div class="form-group">
             <label for="food-name">食物名稱</label>
@@ -91,6 +89,17 @@
       </div>
     </div>
 
+    <!-- 搜尋食品 -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="search-input"
+        placeholder="搜尋食品..."
+      >
+    </div>
+
     <!-- 食物列表 -->
     <div class="food-list">
       <div class="list-header">
@@ -100,13 +109,25 @@
           <span class="expiry-warning" v-if="expiringFoods.length > 0">
             {{ expiringFoods.length }} 項即將到期
           </span>
-          <button
-            v-if="foods.length > 0"
-            @click="exportFoodsCsv"
-            class="auth-btn export"
-          >
-            匯出 CSV
-          </button>
+          <div class="csv-actions">
+            <button
+              v-if="foods.length > 0"
+              @click="exportFoodsCsv"
+              class="auth-btn export"
+            >
+              匯出 CSV
+            </button>
+            <button @click="$refs.csvFileInput.click()" class="auth-btn import">
+              匯入 CSV
+            </button>
+            <input
+              ref="csvFileInput"
+              type="file"
+              accept=".csv"
+              style="display:none"
+              @change="handleImportCsv"
+            >
+          </div>
         </div>
       </div>
       
@@ -116,8 +137,8 @@
       </div>
       
       <div v-else class="foods-grid">
-        <div 
-          v-for="food in sortedFoods" 
+        <div
+          v-for="food in filteredFoods"
           :key="food.id"
           class="food-card"
           :class="getFoodStatusClass(food.todate)"
@@ -126,7 +147,7 @@
             <h4>{{ food.name }}</h4>
             <div class="card-actions">
               <button
-                @click="editFood(food)"
+                @click="editFood(food); showAddForm = true"
                 class="action-btn edit"
                 title="編輯"
               >
@@ -181,9 +202,12 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useFoods } from '../../composables/useFoods'
 import { useFormatters } from '../../composables/useFormatters'
+
+const searchQuery = ref('')
+const showAddForm = ref(false)
 
 const {
   foods,
@@ -194,6 +218,8 @@ const {
   sortedFoods,
   loadFoods,
   addFood,
+  importFoods,
+  isAppwriteFormat,
   editFood,
   updateFood,
   deleteFood,
@@ -202,20 +228,30 @@ const {
 
 const { formatDate, getFoodStatusClass, getExpiryClass } = useFormatters()
 
+const filteredFoods = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return sortedFoods.value
+  return sortedFoods.value.filter(f =>
+    (f.name || '').toLowerCase().includes(q) ||
+    (f.shop || '').toLowerCase().includes(q)
+  )
+})
+
 // 組件掛載時載入資料
 onMounted(() => {
   loadFoods()
 })
 
 const exportFoodsCsv = () => {
-  const header = ['食物名稱', '數量', '價格(NT$)', '購買商店', '到期日期', '照片網址']
+  const header = ['name', 'amount', 'price', 'shop', 'todate', 'photo', 'photohash']
   const rows = sortedFoods.value.map(food => [
     food.name || '',
     food.amount ?? '',
     food.price ?? '',
     food.shop || '',
     food.todate || '',
-    food.photo || ''
+    food.photo || '',
+    food.photohash || ''
   ])
   const bom = '\uFEFF'
   const csvContent = bom + [header, ...rows]
@@ -228,6 +264,115 @@ const exportFoodsCsv = () => {
   link.download = 'supabase-food.csv'
   link.click()
   URL.revokeObjectURL(url)
+}
+
+const csvFileInput = ref(null)
+
+const parseCsv = (text) => {
+  // 更完善的 CSV 解析器，處理引號內的逗號和換行
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i++ // 跳過轉義的引號
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  
+  // 先將文字分割成行，但要處理引號內的換行
+  const splitIntoRows = (text) => {
+    const rows = []
+    let current = ''
+    let inQuotes = false
+    
+    // 統一換行符
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      
+      if (char === '"') {
+        inQuotes = !inQuotes
+        current += char
+      } else if (char === '\n' && !inQuotes) {
+        if (current.trim()) {
+          rows.push(current)
+        }
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    if (current.trim()) {
+      rows.push(current)
+    }
+    return rows
+  }
+  
+  const lines = splitIntoRows(text)
+  if (lines.length < 2) return []
+  
+  const headers = parseRow(lines[0])
+  console.log('CSV Headers:', headers)
+  
+  return lines.slice(1).map((line, idx) => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { 
+      obj[h] = cells[i] || '' 
+    })
+    if (idx === 0) console.log('First row parsed:', obj)
+    return obj
+  })
+}
+
+const handleImportCsv = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const text = await file.text()
+  const rows = parseCsv(text)
+  if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
+  
+  // 檢測 ISO 8601 日期格式並提示使用者
+  const isAppwrite = isAppwriteFormat(rows)
+  let confirmMsg = `確定匯入 ${rows.length} 筆食品資料？`
+  if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 ISO 8601 日期格式
+
+系統將自動轉換日期格式（ISO 8601 → YYYY-MM-DD）
+
+確定匯入 ${rows.length} 筆食品資料？`
+  }
+  
+  if (!confirm(confirmMsg)) return
+  
+  const result = await importFoods(rows)
+  if (result.success) {
+    const msg = result.isAppwrite 
+      ? `✅ ${result.message}！共 ${result.count} 筆資料`
+      : `成功匯入 ${result.count} 筆食品！`
+    alert(msg)
+  } else {
+    alert('匯入失敗: ' + result.error)
+  }
+  e.target.value = ''
 }
 
 const handleSubmit = () => {
@@ -269,6 +414,29 @@ defineExpose({
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
+}
+
+.collapsible-header:hover {
+  color: #3498db;
+}
+
+.collapse-icon {
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+  color: #95a5a6;
+}
+
+.collapse-icon.open {
+  transform: rotate(90deg);
 }
 
 .food-form {
@@ -350,9 +518,53 @@ defineExpose({
   background: #219a52;
 }
 
+.auth-btn.import {
+  background: #2980b9;
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.auth-btn.import:hover {
+  background: #2471a3;
+}
+
+.csv-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .auth-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-icon {
+  font-size: 1.1rem;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--text-primary, #2c3e50);
+}
+
+.search-input::placeholder {
+  color: #95a5a6;
 }
 
 .food-list {

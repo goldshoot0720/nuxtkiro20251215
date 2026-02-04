@@ -1,13 +1,6 @@
 <template>
   <PageContainer>
     <div class="common-page">
-      <div class="page-header">
-        <h1 class="page-title">⭐ 鋒兄常用</h1>
-        <p class="page-description">
-          常用工具與連結集合
-        </p>
-      </div>
-
       <!-- 操作區 -->
       <div class="actions-bar">
         <div class="search-box">
@@ -340,7 +333,7 @@ const confirmDelete = async (account) => {
 
 // SEO
 useHead({
-  title: '鋒兄常用 - 鋒兄管理系統',
+  title: '鋒兄常用 - 鋒兄AI Supabase',
   meta: [
     { name: 'description', content: '常用帳號與連結管理' }
   ]

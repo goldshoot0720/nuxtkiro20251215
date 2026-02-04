@@ -5,7 +5,7 @@
         <div class="brand-icon">🏢</div>
         <div class="brand-text">
           <h2 class="brand-title">鋒兄管理系統</h2>
-          <p class="brand-subtitle">Professional Management</p>
+          <p class="brand-subtitle">鋒兄AI</p>
         </div>
       </div>
       <button @click="$emit('toggle')" class="sidebar-toggle">
@@ -61,12 +61,12 @@ defineEmits(['toggle', 'navigate'])
 
 <style scoped>
 .sidebar {
-  width: 300px;
+  width: 220px;
   background: linear-gradient(180deg, #2c3e50 0%, #1a202c 100%);
   color: #ffffff;
   position: fixed;
   top: 0;
-  left: -300px;
+  left: -220px;
   height: 100vh;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
@@ -81,7 +81,7 @@ defineEmits(['toggle', 'navigate'])
 }
 
 .sidebar-header {
-  padding: 2rem 1.5rem 1.5rem;
+  padding: 1.25rem 1rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   justify-content: space-between;
@@ -97,10 +97,10 @@ defineEmits(['toggle', 'navigate'])
 }
 
 .brand-icon {
-  font-size: 2.5rem;
+  font-size: 1.8rem;
   background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
-  border-radius: 12px;
-  padding: 0.5rem;
+  border-radius: 10px;
+  padding: 0.4rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -116,7 +116,7 @@ defineEmits(['toggle', 'navigate'])
 .brand-text { flex: 1; }
 
 .brand-title {
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   font-weight: 900;
   color: #ffffff;
   margin: 0;
@@ -156,30 +156,30 @@ defineEmits(['toggle', 'navigate'])
 }
 
 .sidebar-nav {
-  padding: 1.5rem 0;
+  padding: 0.75rem 0;
 }
 
 .sidebar-nav ul {
   list-style: none;
-  padding: 0 1rem;
+  padding: 0 0.5rem;
   margin: 0;
 }
 
 .nav-btn {
   width: 100%;
-  padding: 1rem 1.5rem;
+  padding: 0.6rem 0.8rem;
   background: none;
   border: none;
   color: #ffffff;
   text-align: left;
   cursor: pointer;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  border-radius: 12px;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+  border-radius: 8px;
+  margin-bottom: 0.25rem;
 }
 
 .nav-btn:hover {
@@ -224,10 +224,10 @@ defineEmits(['toggle', 'navigate'])
   .sidebar {
     position: static;
     left: 0;
-    width: 320px;
+    width: 220px;
     box-shadow: none;
   }
-  
+
   .sidebar-toggle {
     display: none;
   }
@@ -238,10 +238,10 @@ defineEmits(['toggle', 'navigate'])
   .sidebar {
     position: static;
     left: 0;
-    width: 280px;
+    width: 200px;
     box-shadow: none;
   }
-  
+
   .sidebar-toggle {
     display: none;
   }

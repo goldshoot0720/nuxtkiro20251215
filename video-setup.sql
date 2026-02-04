@@ -3,19 +3,17 @@
 
 -- Create video table
 CREATE TABLE IF NOT EXISTS public.video (
-  id bigserial NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  name text NULL,
-  file text NULL,
-  filetype text NULL,
-  note text NULL,
-  ref text NULL,
-  category text NULL,
-  hash text NULL,
-  cover text NULL,
-  CONSTRAINT video_pkey PRIMARY KEY (id),
-  CONSTRAINT video_name_key UNIQUE (name)
-) TABLESPACE pg_default;
+  id BIGSERIAL PRIMARY KEY,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  name TEXT UNIQUE,
+  file TEXT,
+  filetype VARCHAR(20),
+  note TEXT,
+  ref TEXT,
+  category TEXT,
+  hash TEXT,
+  cover TEXT
+);
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_video_name ON public.video(name);

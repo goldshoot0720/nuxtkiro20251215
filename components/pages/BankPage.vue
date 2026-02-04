@@ -1,21 +1,27 @@
 <template>
   <PageContainer>
     <div class="bank-page">
-      <div class="page-header">
-        <h1 class="page-title">💰 銀行統計</h1>
-        <p class="page-description">
-          管理各銀行帳戶資產與明細
-        </p>
-        
-        <!-- 總資產卡片 -->
+      <!-- 操作區 -->
+      <div class="actions-bar">
         <div class="total-assets-card">
           <div class="label">總資產</div>
           <div class="amount">NT$ {{ formatNumber(totalAssets) }}</div>
         </div>
-      </div>
-
-      <!-- 操作區 -->
-      <div class="actions-bar">
+        <div class="csv-actions">
+          <button v-if="banks.length > 0" @click="exportBanksCsv" class="btn-csv export">
+            匯出 CSV
+          </button>
+          <button @click="$refs.csvFileInput.click()" class="btn-csv import">
+            匯入 CSV
+          </button>
+          <input
+            ref="csvFileInput"
+            type="file"
+            accept=".csv"
+            style="display:none"
+            @change="handleImportCsv"
+          >
+        </div>
         <button class="btn-primary" @click="openAddModal">
           <span class="icon">➕</span> 新增帳戶
         </button>
@@ -195,17 +201,18 @@ import { ref, onMounted, reactive, watch } from 'vue'
 import PageContainer from '../layout/PageContainer.vue'
 import { useBanks } from '../../composables/useBanks'
 
-const { 
-  banks, 
-  loading, 
+const {
+  banks,
+  loading,
   defaultBankNames,
   getBankFavicon,
-  loadBanks, 
-  addBank, 
-  updateBank, 
+  loadBanks,
+  addBank,
+  importBanks,
+  updateBank,
   deleteBank,
   initDefaultBanks,
-  totalAssets 
+  totalAssets
 } = useBanks()
 
 // 狀態
@@ -242,6 +249,62 @@ watch(() => formData.name, (newVal) => {
     customBankName.value = newVal
   }
 })
+
+const csvFileInput = ref(null)
+
+const parseCsv = (text) => {
+  const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim())
+  return lines.slice(1).map(line => {
+    const cells = line.match(/(".*?"|[^,]*)/g) || []
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = (cells[i] || '').replace(/^"|"$/g, '').replace(/""/g, '"').trim() })
+    return obj
+  })
+}
+
+const exportBanksCsv = () => {
+  const header = ['銀行名稱', '存款', '帳號', '卡號', '分行/網點', '地址', '提款', '轉帳', '活動/備註']
+  const rows = banks.value.map(b => [
+    b.name || '',
+    b.deposit ?? '',
+    b.account || '',
+    b.card || '',
+    b.site || '',
+    b.address || '',
+    b.withdrawals ?? '',
+    b.transfer ?? '',
+    b.activity || ''
+  ])
+  const bom = '\uFEFF'
+  const csvContent = bom + [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'supabase-bank.csv'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const handleImportCsv = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const text = await file.text()
+  const rows = parseCsv(text)
+  if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
+  if (!confirm(`確定匯入 ${rows.length} 筆銀行資料？`)) return
+  const result = await importBanks(rows)
+  if (result.success) {
+    alert(`成功匯入 ${result.count} 筆銀行帳戶！`)
+  } else {
+    alert('匯入失敗: ' + result.error)
+  }
+  e.target.value = ''
+}
 
 // 格式化數字
 const formatNumber = (num) => {
@@ -344,7 +407,7 @@ const handleInitDefaults = async () => {
 
 // SEO
 useHead({
-  title: '銀行統計 - 鋒兄管理系統',
+  title: '銀行統計 - 鋒兄AI Supabase',
   meta: [
     { name: 'description', content: '管理銀行帳戶與資產統計' }
   ]
@@ -411,22 +474,20 @@ useHead({
 }
 
 .total-assets-card {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(5px);
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
   border-radius: 12px;
-  padding: 1rem 2rem;
-  display: inline-block;
-  min-width: 200px;
+  padding: 0.75rem 1.5rem;
+  color: white;
 }
 
 .total-assets-card .label {
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   opacity: 0.9;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.15rem;
 }
 
 .total-assets-card .amount {
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
   text-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
@@ -434,7 +495,42 @@ useHead({
 .actions-bar {
   margin-bottom: 2rem;
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.csv-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-csv {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: white;
+}
+
+.btn-csv.export {
+  background: #27ae60;
+}
+
+.btn-csv.export:hover {
+  background: #219a52;
+}
+
+.btn-csv.import {
+  background: #2980b9;
+}
+
+.btn-csv.import:hover {
+  background: #2471a3;
 }
 
 /* Grid Layout - 手機版優先一欄，平板以上兩欄 */

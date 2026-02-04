@@ -1,14 +1,12 @@
 <template>
   <div class="subscription-management">
-    <div class="user-info">
-      <h3 class="page-brand-title">鋒兄訂閱管理系統</h3>
-      <p>管理您的所有訂閱服務</p>
-    </div>
-
     <!-- 新增訂閱 -->
     <div class="add-subscription">
-      <h3>新增訂閱項目</h3>
-      <div class="subscription-form">
+      <h3 class="collapsible-header" @click="showAddForm = !showAddForm">
+        <span>{{ editingSubscription ? '編輯訂閱項目' : '新增訂閱項目' }}</span>
+        <span class="collapse-icon" :class="{ open: showAddForm }">▶</span>
+      </h3>
+      <div class="subscription-form" v-show="showAddForm">
         <div class="form-row">
           <div class="form-group">
             <label for="sub-name">服務名稱</label>
@@ -91,6 +89,17 @@
       </div>
     </div>
 
+    <!-- 搜尋訂閱 -->
+    <div class="search-bar">
+      <span class="search-icon">🔍</span>
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="search-input"
+        placeholder="搜尋訂閱..."
+      >
+    </div>
+
     <!-- 訂閱列表 -->
     <div class="subscription-list">
       <div class="list-header">
@@ -98,13 +107,25 @@
         <div class="summary">
           <span class="total-count">共 {{ subscriptions.length }} 個項目</span>
           <span class="total-cost">每月總計：NT$ {{ totalMonthlyCost }}</span>
-          <button
-            v-if="subscriptions.length > 0"
-            @click="exportSubscriptionsCsv"
-            class="auth-btn export"
-          >
-            匯出 CSV
-          </button>
+          <div class="csv-actions">
+            <button
+              v-if="subscriptions.length > 0"
+              @click="exportSubscriptionsCsv"
+              class="auth-btn export"
+            >
+              匯出 CSV
+            </button>
+            <button @click="$refs.csvFileInput.click()" class="auth-btn import">
+              匯入 CSV
+            </button>
+            <input
+              ref="csvFileInput"
+              type="file"
+              accept=".csv"
+              style="display:none"
+              @change="handleImportCsv"
+            >
+          </div>
         </div>
       </div>
       
@@ -114,8 +135,8 @@
       </div>
       
       <div v-else class="subscriptions-grid">
-        <div 
-          v-for="subscription in sortedSubscriptions" 
+        <div
+          v-for="subscription in filteredSubscriptions"
           :key="subscription.id"
           class="subscription-card"
         >
@@ -123,7 +144,7 @@
             <h4>{{ subscription.name }}</h4>
             <div class="card-actions">
               <button
-                @click="editSubscription(subscription)"
+                @click="editSubscription(subscription); showAddForm = true"
                 class="action-btn edit"
                 title="編輯"
               >
@@ -172,9 +193,12 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useSubscriptions } from '../../composables/useSubscriptions'
 import { useFormatters } from '../../composables/useFormatters'
+
+const searchQuery = ref('')
+const showAddForm = ref(false)
 
 const {
   subscriptions,
@@ -185,6 +209,8 @@ const {
   sortedSubscriptions,
   loadSubscriptions,
   addSubscription,
+  importSubscriptions,
+  isAppwriteFormat,
   editSubscription,
   updateSubscription,
   deleteSubscription,
@@ -193,13 +219,24 @@ const {
 
 const { formatDate, getDateClass } = useFormatters()
 
+const filteredSubscriptions = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return sortedSubscriptions.value
+  return sortedSubscriptions.value.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.account || '').toLowerCase().includes(q) ||
+    (s.site || '').toLowerCase().includes(q) ||
+    (s.note || '').toLowerCase().includes(q)
+  )
+})
+
 // 組件掛載時載入資料
 onMounted(() => {
   loadSubscriptions()
 })
 
 const exportSubscriptionsCsv = () => {
-  const header = ['服務名稱', '網站網址', '帳號/Email', '月費(NT$)', '下次扣款日期', '備註']
+  const header = ['name', 'site', 'account', 'price', 'nextdate', 'note']
   const rows = sortedSubscriptions.value.map(sub => [
     sub.name || '',
     sub.site || '',
@@ -219,6 +256,115 @@ const exportSubscriptionsCsv = () => {
   link.download = 'supabase-subscription.csv'
   link.click()
   URL.revokeObjectURL(url)
+}
+
+const csvFileInput = ref(null)
+
+const parseCsv = (text) => {
+  // 更完善的 CSV 解析器，處理引號內的逗號和換行
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i++ // 跳過轉義的引號
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  
+  // 先將文字分割成行，但要處理引號內的換行
+  const splitIntoRows = (text) => {
+    const rows = []
+    let current = ''
+    let inQuotes = false
+    
+    // 統一換行符
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      
+      if (char === '"') {
+        inQuotes = !inQuotes
+        current += char
+      } else if (char === '\n' && !inQuotes) {
+        if (current.trim()) {
+          rows.push(current)
+        }
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    if (current.trim()) {
+      rows.push(current)
+    }
+    return rows
+  }
+  
+  const lines = splitIntoRows(text)
+  if (lines.length < 2) return []
+  
+  const headers = parseRow(lines[0])
+  console.log('CSV Headers:', headers)
+  
+  return lines.slice(1).map((line, idx) => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { 
+      obj[h] = cells[i] || '' 
+    })
+    if (idx === 0) console.log('First row parsed:', obj)
+    return obj
+  })
+}
+
+const handleImportCsv = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const text = await file.text()
+  const rows = parseCsv(text)
+  if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
+  
+  // 檢測 ISO 8601 日期格式並提示使用者
+  const isAppwrite = isAppwriteFormat(rows)
+  let confirmMsg = `確定匯入 ${rows.length} 筆訂閱資料？`
+  if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 ISO 8601 日期格式
+
+系統將自動轉換日期格式（ISO 8601 → YYYY-MM-DD）
+
+確定匯入 ${rows.length} 筆訂閱資料？`
+  }
+  
+  if (!confirm(confirmMsg)) return
+  
+  const result = await importSubscriptions(rows)
+  if (result.success) {
+    const msg = result.isAppwrite 
+      ? `✅ ${result.message}！共 ${result.count} 筆資料`
+      : `成功匯入 ${result.count} 筆訂閱！`
+    alert(msg)
+  } else {
+    alert('匯入失敗: ' + result.error)
+  }
+  e.target.value = ''
 }
 
 const handleSubmit = () => {
@@ -261,6 +407,29 @@ defineExpose({
   border-radius: 8px;
   padding: 2rem;
   margin-bottom: 2rem;
+}
+
+.collapsible-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  margin: 0;
+}
+
+.collapsible-header:hover {
+  color: #3498db;
+}
+
+.collapse-icon {
+  font-size: 0.8rem;
+  transition: transform 0.3s ease;
+  color: #95a5a6;
+}
+
+.collapse-icon.open {
+  transform: rotate(90deg);
 }
 
 .subscription-form {
@@ -342,9 +511,53 @@ defineExpose({
   background: #219a52;
 }
 
+.auth-btn.import {
+  background: #2980b9;
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+.auth-btn.import:hover {
+  background: #2471a3;
+}
+
+.csv-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .auth-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: white;
+  border: 1px solid #e1e8ed;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 2rem;
+}
+
+.search-icon {
+  font-size: 1.1rem;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  background: transparent;
+  color: var(--text-primary, #2c3e50);
+}
+
+.search-input::placeholder {
+  color: #95a5a6;
 }
 
 .subscription-list {

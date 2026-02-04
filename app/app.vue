@@ -16,6 +16,7 @@
         <!-- 頂部標題 -->
         <AppHeader
           :title="pageTitle"
+          :subtitle="pageSubtitle"
           :is-dark-mode="isDarkMode"
           @toggle-sidebar="toggleSidebar"
           @toggle-dark-mode="toggleDarkMode"
@@ -44,11 +45,7 @@
             ref="foodPageRef"
           />
 
-          <!-- 影片管理 -->
-          <VideoPage 
-            v-if="currentPage === 'video'"
-            ref="videoPageRef"
-          />
+          <!-- 影片管理（暫未實作） -->
 
           <!-- 圖片庫 -->
           <GalleryPage 
@@ -56,10 +53,7 @@
             ref="galleryPageRef"
           />
 
-          <!-- 音樂庫 -->
-          <MusicPage 
-            v-if="currentPage === 'music'"
-          />
+          <!-- 音樂庫（暫未實作） -->
 
           <!-- 銀行統計 -->
           <BankPage 
@@ -72,8 +66,19 @@
             v-if="currentPage === 'note'"
           />
 
-          <CommonPage 
+          <CommonPage
             v-if="currentPage === 'common'"
+          />
+
+          <!-- 鋒兄設定 -->
+          <SettingsPage
+            v-if="currentPage === 'settings'"
+          />
+
+          <!-- 鋒兄首頁 -->
+          <HomePage
+            v-if="currentPage === 'home'"
+            @navigate="setCurrentPage"
           />
 
           <PageContainer
@@ -139,12 +144,12 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import DashboardPage from '../components/pages/DashboardPage.vue'
 import SubscriptionPage from '../components/pages/SubscriptionPage.vue'
 import FoodPage from '../components/pages/FoodPage.vue'
-import VideoPage from '../components/pages/VideoPage.vue'
 import GalleryPage from '../components/pages/GalleryPage.vue'
-import MusicPage from '../components/pages/MusicPage.vue'
 import NotePage from '../components/pages/NotePage.vue'
 import CommonPage from '../components/pages/CommonPage.vue'
 import BankPage from '../components/pages/BankPage.vue'
+import SettingsPage from '../components/pages/SettingsPage.vue'
+import HomePage from '../components/pages/HomePage.vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ToastContainer from '../components/ui/ToastContainer.vue'
@@ -161,7 +166,6 @@ import { useScroll } from '../composables/useScroll'
 // 組件引用
 const subscriptionPageRef = ref(null)
 const foodPageRef = ref(null)
-const videoPageRef = ref(null)
 const galleryPageRef = ref(null)
 const bankPageRef = ref(null)
 
@@ -170,10 +174,11 @@ const { subscriptions, totalMonthlyCost, loadSubscriptions } = useSubscriptions(
 const { foods, loadFoods } = useFoods()
 const { isDarkMode, toggleDarkMode, initTheme } = useTheme()
 const { 
-  currentPage, 
-  sidebarOpen, 
-  pages, 
-  pageTitle, 
+  currentPage,
+  sidebarOpen,
+  pages,
+  pageTitle,
+  pageSubtitle,
   setCurrentPage, 
   toggleSidebar, 
   closeSidebar, 
@@ -194,11 +199,11 @@ const subscriptionsCount = computed(() => subscriptions.value.length)
 const foodsCount = computed(() => foods.value.length)
 const isDevelopment = computed(() => false) // 設為 true 以啟用滾動調試
 const placeholderPages = {
-  home: { title: '鋒兄首頁', icon: '🏠', description: '首頁內容正在準備中。' },
+  video: { title: '鋒兄影片', icon: '🎬', description: '影片管理功能正在準備中。' },
+  music: { title: '鋒兄音樂', icon: '🎵', description: '音樂管理功能正在準備中。' },
   document: { title: '鋒兄文件', icon: '📄', description: '文件管理功能正在準備中。' },
   podcast: { title: '鋒兄播客', icon: '🎙️', description: '播客內容正在準備中。' },
   routine: { title: '鋒兄例行', icon: '📅', description: '例行管理功能正在準備中。' },
-  settings: { title: '鋒兄設定', icon: '⚙️', description: '設定功能正在準備中。' },
   about: { title: '鋒兄關於', icon: 'ℹ️', description: '關於頁面內容正在準備中。' }
 }
 const placeholderConfig = computed(() => placeholderPages[currentPage.value] || null)
@@ -248,6 +253,8 @@ onUnmounted(() => {
 
 .main-content {
   flex: 1;
+  min-width: 0;
+  width: 100%;
   display: flex;
   flex-direction: column;
   transition: margin-left var(--transition-normal);
@@ -255,6 +262,7 @@ onUnmounted(() => {
 
 .page-content {
   flex: 1;
+  width: 100%;
   padding: 2.5rem;
   overflow-y: auto;
   background: var(--bg-primary);
@@ -275,7 +283,7 @@ onUnmounted(() => {
 /* 響應式設計 */
 @media (min-width: 1200px) {
   .main-content { margin-left: 0; }
-  .page-content { padding: 3rem 4rem; max-width: 1400px; margin: 0 auto; }
+  .page-content { padding: 2rem 3rem; }
 }
 
 @media (min-width: 769px) and (max-width: 1199px) {

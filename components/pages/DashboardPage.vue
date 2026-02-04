@@ -1,27 +1,5 @@
 <template>
   <PageContainer>
-    <!-- 版權資訊 -->
-    <div class="copyright-info">
-      <div class="copyright-content">
-        <div class="copyright-icon">🏢</div>
-        <div class="copyright-text-wrapper">
-          <div class="company-brand">
-            <h2 class="company-name">鋒兄塗哥公關資訊</h2>
-            <div class="company-tagline">Professional Business Solutions</div>
-          </div>
-          <p class="copyright-text">
-            <span class="copyright-main">©版權所有 2025～2125 | 專業管理系統解決方案</span><br>
-            <span class="tech-stack">前端使用Vue(Nuxt) | 後端使用 Supabase | 影片存放於 Netlify | 網頁存放於 Netlify Blobs</span>
-          </p>
-        </div>
-      </div>
-      <div class="copyright-decoration">
-        <div class="decoration-circle"></div>
-        <div class="decoration-circle"></div>
-        <div class="decoration-circle"></div>
-      </div>
-    </div>
-
     <h1 class="dashboard-title">鋒兄儀表板</h1>
     
     <!-- 儀表板概覽 -->

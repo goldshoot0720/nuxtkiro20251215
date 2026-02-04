@@ -3,19 +3,18 @@
 
 -- Create podcast table
 CREATE TABLE IF NOT EXISTS public.podcast (
-  id bigserial NOT NULL,
-  created_at timestamp with time zone NULL DEFAULT now(),
-  updated_at timestamp with time zone NULL DEFAULT now(),
-  name character varying(100) NOT NULL,
-  file character varying(150) NULL,
-  filetype character varying(20) NULL,
-  note character varying(100) NULL,
-  ref character varying(100) NULL,
-  category character varying(100) NULL,
-  hash character varying(300) NULL,
-  cover character varying(150) NULL,
-  CONSTRAINT podcast_pkey PRIMARY KEY (id)
-) TABLESPACE pg_default;
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  file VARCHAR(150),
+  filetype VARCHAR(20),
+  note VARCHAR(20),
+  ref VARCHAR(100),
+  category VARCHAR(100),
+  hash VARCHAR(300),
+  cover VARCHAR(150),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Create indexes for better query performance
 CREATE INDEX IF NOT EXISTS idx_podcast_name ON public.podcast(name);
