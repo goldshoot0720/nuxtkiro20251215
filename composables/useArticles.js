@@ -183,6 +183,84 @@ export const useArticles = () => {
     }
   }
 
+  // 檢測是否為 Appwrite 格式（ISO 8601 日期）
+  const isAppwriteFormat = (rows) => {
+    if (!rows || rows.length === 0) return false
+    const firstRow = rows[0]
+    const hasIsoDate = firstRow.newDate && firstRow.newDate.includes('T')
+    return hasIsoDate
+  }
+
+  // 轉換 ISO 8601 日期格式為簡單日期
+  const convertAppwriteDate = (isoDate) => {
+    if (!isoDate) return null
+    if (isoDate.includes('T')) {
+      return isoDate.split('T')[0]
+    }
+    return isoDate
+  }
+
+  // 批次匯入筆記
+  const importArticles = async (rows) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+    
+    try {
+      loading.value = true
+      
+      const isAppwrite = isAppwriteFormat(rows)
+      console.log('Import format - isAppwrite:', isAppwrite)
+      
+      const payload = rows.map((r) => {
+        let newDate = r.newDate || null
+        if (newDate && newDate.includes('T')) {
+          newDate = convertAppwriteDate(newDate)
+        }
+        
+        return {
+          title: r.title || '',
+          content: r.content || '',
+          category: r.category || null,
+          ref: r.ref || null,
+          newDate: newDate,
+          url1: r.url1 || null,
+          url2: r.url2 || null,
+          url3: r.url3 || null,
+          file1: r.file1 || null,
+          file1name: r.file1name || null,
+          file1type: r.file1type || null,
+          file2: r.file2 || null,
+          file2name: r.file2name || null,
+          file2type: r.file2type || null,
+          file3: r.file3 || null,
+          file3name: r.file3name || null,
+          file3type: r.file3type || null
+        }
+      }).filter(r => r.title || r.content)
+      
+      if (payload.length === 0) return { success: false, error: '無有效資料' }
+      
+      console.log('Inserting', payload.length, 'articles')
+      const { data, error: insertError } = await client.from('article').insert(payload).select()
+      if (insertError) throw insertError
+      
+      articles.value.push(...data)
+      articles.value.sort((a, b) => new Date(b.newDate) - new Date(a.newDate))
+      
+      return { 
+        success: true, 
+        count: data.length,
+        isAppwrite: isAppwrite,
+        message: isAppwrite ? '已轉換 ISO 8601 日期格式並匯入' : '匯入成功'
+      }
+    } catch (e) {
+      console.error('Import error:', e)
+      return { success: false, error: e.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     articles,
     loading,
@@ -190,6 +268,8 @@ export const useArticles = () => {
     loadArticles,
     addArticle,
     updateArticle,
-    deleteArticle
+    deleteArticle,
+    importArticles,
+    isAppwriteFormat
   }
 }

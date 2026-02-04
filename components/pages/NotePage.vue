@@ -1,22 +1,32 @@
 <template>
   <PageContainer>
     <div class="note-page">
-      <div class="page-header">
-        <h1 class="page-title">📝 鋒兄筆記</h1>
-        <p class="page-description">
-          記錄生活點滴與重要資訊
-        </p>
-      </div>
-
       <!-- 操作區 -->
       <div class="actions-bar">
         <div class="search-box">
           <span class="icon">🔍</span>
           <input v-model="searchQuery" type="text" placeholder="搜尋筆記標題或內容..." class="search-input">
         </div>
-        <button class="btn-primary" @click="openAddModal">
-          <span class="icon">➕</span> 新增筆記
-        </button>
+        <div class="action-buttons">
+          <div class="csv-actions">
+            <button v-if="articles.length > 0" @click="exportArticlesCsv" class="btn-export">
+              <span class="icon">📤</span> 匯出 CSV
+            </button>
+            <button @click="$refs.csvFileInput.click()" class="btn-import">
+              <span class="icon">📥</span> 匯入 CSV
+            </button>
+            <input
+              ref="csvFileInput"
+              type="file"
+              accept=".csv"
+              style="display:none"
+              @change="handleImportCsv"
+            >
+          </div>
+          <button class="btn-primary" @click="openAddModal">
+            <span class="icon">➕</span> 新增筆記
+          </button>
+        </div>
       </div>
       
       <!-- 載入中 -->
@@ -161,7 +171,9 @@ const {
   loadArticles, 
   addArticle, 
   updateArticle, 
-  deleteArticle 
+  deleteArticle,
+  importArticles,
+  isAppwriteFormat
 } = useArticles()
 
 // 狀態
@@ -286,9 +298,141 @@ const confirmDelete = async (article) => {
   }
 }
 
+// CSV 匯出
+const exportArticlesCsv = () => {
+  const header = ['title', 'content', 'category', 'ref', 'newDate', 'url1', 'url2', 'url3', 'file1', 'file1name', 'file1type', 'file2', 'file2name', 'file2type', 'file3', 'file3name', 'file3type']
+  const rows = articles.value.map(a => [
+    a.title || '',
+    a.content || '',
+    a.category || '',
+    a.ref || '',
+    a.newDate || '',
+    a.url1 || '',
+    a.url2 || '',
+    a.url3 || '',
+    a.file1 || '',
+    a.file1name || '',
+    a.file1type || '',
+    a.file2 || '',
+    a.file2name || '',
+    a.file2type || '',
+    a.file3 || '',
+    a.file3name || '',
+    a.file3type || ''
+  ])
+  const bom = '\uFEFF'
+  const csvContent = bom + [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'supabase-article.csv'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+const csvFileInput = ref(null)
+
+const parseCsv = (text) => {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  
+  const splitIntoRows = (text) => {
+    const rows = []
+    let current = ''
+    let inQuotes = false
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      if (char === '"') {
+        inQuotes = !inQuotes
+        current += char
+      } else if (char === '\n' && !inQuotes) {
+        if (current.trim()) rows.push(current)
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    if (current.trim()) rows.push(current)
+    return rows
+  }
+  
+  const lines = splitIntoRows(text)
+  if (lines.length < 2) return []
+  
+  const headers = parseRow(lines[0])
+  console.log('CSV Headers:', headers)
+  
+  return lines.slice(1).map((line, idx) => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    if (idx === 0) console.log('First row parsed:', obj)
+    return obj
+  })
+}
+
+const handleImportCsv = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const text = await file.text()
+  const rows = parseCsv(text)
+  if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
+  
+  const isAppwrite = isAppwriteFormat(rows)
+  let confirmMsg = `確定匯入 ${rows.length} 筆筆記資料？`
+  if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 ISO 8601 日期格式
+
+系統將自動轉換日期格式（ISO 8601 → YYYY-MM-DD）
+
+確定匯入 ${rows.length} 筆筆記資料？`
+  }
+  
+  if (!confirm(confirmMsg)) return
+  
+  const result = await importArticles(rows)
+  if (result.success) {
+    const msg = result.isAppwrite 
+      ? `✅ ${result.message}！共 ${result.count} 筆資料`
+      : `成功匯入 ${result.count} 筆筆記！`
+    alert(msg)
+  } else {
+    alert('匯入失敗: ' + result.error)
+  }
+  e.target.value = ''
+}
+
 // SEO
 useHead({
-  title: '鋒兄筆記 - 鋒兄管理系統',
+  title: '鋒兄筆記 - 鋒兄AI Supabase',
   meta: [
     { name: 'description', content: '記錄生活點滴與重要資訊' }
   ]
@@ -328,6 +472,41 @@ useHead({
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.csv-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-export, .btn-import {
+  padding: 0.6rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+}
+
+.btn-export:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.btn-import:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
 }
 
 .search-box {
