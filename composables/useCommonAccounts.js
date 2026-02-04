@@ -1,18 +1,49 @@
 import { ref } from 'vue'
+import { createClient } from '@supabase/supabase-js'
+import { getSupabaseCredentials } from './useSettings'
+
+// 共享狀態
+let supabase = null
+let currentCredentials = null
+
+// 初始化 Supabase（優先使用 localStorage 設定）
+const initSupabase = () => {
+  if (typeof window === 'undefined') return null
+  
+  const creds = getSupabaseCredentials()
+  const config = useRuntimeConfig()
+  
+  const url = creds?.url || config.public.supabaseUrl
+  const key = creds?.key || config.public.supabaseAnonKey
+  const credKey = `${url}:${key?.slice(0, 20)}`
+  
+  if (supabase && currentCredentials !== credKey) {
+    supabase = null
+  }
+  
+  if (!supabase) {
+    supabase = createClient(url, key)
+    currentCredentials = credKey
+  }
+  
+  return supabase
+}
 
 export const useCommonAccounts = () => {
-  const supabase = useSupabaseClient()
   const accounts = ref([])
   const loading = ref(false)
   const error = ref(null)
 
   // 載入資料
   const loadAccounts = async () => {
+    const client = initSupabase()
+    if (!client) return
+    
     try {
       loading.value = true
       error.value = null
       
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await client
         .from('commonaccount')
         .select('*')
         .order('created_at', { ascending: false })
@@ -30,15 +61,15 @@ export const useCommonAccounts = () => {
 
   // 新增資料
   const addAccount = async (accountData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
       
-      // 移除 id (如果是新資料)
       const { id, ...payload } = accountData
       
-      // 確保空值為 null 或空字串，視需求而定，這裡保留原樣
-      
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await client
         .from('commonaccount')
         .insert([payload])
         .select()
@@ -59,13 +90,15 @@ export const useCommonAccounts = () => {
 
   // 更新資料
   const updateAccount = async (id, accountData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
       
-      // 確保不包含 id 在 update payload 中 (雖然 supabase 會忽略，但為了乾淨)
       const { id: _, created_at: __, ...payload } = accountData
 
-      const { data, error: updateError } = await supabase
+      const { data, error: updateError } = await client
         .from('commonaccount')
         .update(payload)
         .eq('id', id)
@@ -90,9 +123,12 @@ export const useCommonAccounts = () => {
 
   // 刪除資料
   const deleteAccount = async (id) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await client
         .from('commonaccount')
         .delete()
         .eq('id', id)

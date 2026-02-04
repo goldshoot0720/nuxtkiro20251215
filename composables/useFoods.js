@@ -2,6 +2,7 @@
 // 食物管理的完整邏輯 - 使用共享狀態
 import { ref, computed } from 'vue'
 import { createClient } from '@supabase/supabase-js'
+import { getSupabaseCredentials } from './useSettings'
 
 // 共享狀態（在模組層級定義，所有組件共用）
 const foods = ref([])
@@ -18,17 +19,36 @@ const newFood = ref({
 })
 let supabase = null
 let isInitialized = false
+let currentCredentials = null // 記錄當前使用的認證
 
 export const useFoods = () => {
-  // 初始化 Supabase（只執行一次）
+  // 初始化 Supabase（優先使用 localStorage 設定）
   const initSupabase = () => {
-    if (!supabase && process.client) {
-      const config = useRuntimeConfig()
-      supabase = createClient(
-        config.public.supabaseUrl,
-        config.public.supabaseAnonKey
-      )
+    if (!process.client) return null
+    
+    // 檢查認證是否變更
+    const creds = getSupabaseCredentials()
+    const config = useRuntimeConfig()
+    
+    // 決定使用哪個認證
+    const url = creds?.url || config.public.supabaseUrl
+    const key = creds?.key || config.public.supabaseAnonKey
+    const credKey = `${url}:${key?.slice(0, 20)}`
+    
+    // 如果認證變更，重新建立客戶端並重置資料
+    if (supabase && currentCredentials !== credKey) {
+      console.log('Supabase 認證變更，重新初始化...')
+      supabase = null
+      isInitialized = false
+      foods.value = []
     }
+    
+    if (!supabase) {
+      supabase = createClient(url, key)
+      currentCredentials = credKey
+      console.log('Supabase 客戶端已初始化:', creds ? 'localStorage' : '.env')
+    }
+    
     return supabase
   }
 
@@ -237,6 +257,93 @@ export const useFoods = () => {
     editingFood.value = null
   }
 
+  // 檢測是否為 Appwrite 格式（ISO 8601 日期）
+  const isAppwriteFormat = (rows) => {
+    if (!rows || rows.length === 0) return false
+    const firstRow = rows[0]
+    // Appwrite 格式的日期包含 'T'
+    const hasIsoDate = firstRow.todate && firstRow.todate.includes('T')
+    return hasIsoDate
+  }
+
+  // 驗證日期格式（YYYY-MM-DD 或 ISO 8601）
+  const isValidDate = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string') return false
+    // 接受 YYYY-MM-DD 或 ISO 8601 格式
+    const dateRegex = /^\d{4}-\d{2}-\d{2}(T.*)?$/
+    return dateRegex.test(dateStr)
+  }
+
+  // 轉換 ISO 8601 日期格式為簡單日期
+  const convertAppwriteDate = (isoDate) => {
+    if (!isoDate) return null
+    if (isoDate.includes('T')) {
+      return isoDate.split('T')[0]
+    }
+    return isoDate
+  }
+
+  // 批次匯入食物
+  const importFoods = async (rows) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+    
+    try {
+      foodLoading.value = true
+      
+      // 檢測格式
+      const isAppwrite = isAppwriteFormat(rows)
+      console.log('Import format - isAppwrite:', isAppwrite)
+      console.log('First row:', rows[0])
+      
+      const payload = rows.map((r, idx) => {
+        // 處理日期格式
+        let todate = r.todate || null
+        
+        // 驗證日期格式，無效則設為 null
+        if (todate && !isValidDate(todate)) {
+          console.warn(`Row ${idx}: Invalid date format "${todate}", setting to null`)
+          todate = null
+        } else if (todate && todate.includes('T')) {
+          // 轉換 ISO 8601 格式
+          todate = convertAppwriteDate(todate)
+        }
+        
+        const record = {
+          name: r.name || '',
+          amount: Number(r.amount || 0) || null,
+          price: Number(r.price || 0) || null,
+          shop: r.shop || null,
+          todate: todate,
+          photo: r.photo || null,
+          photohash: r.photohash || null
+        }
+        
+        if (idx === 0) console.log('First payload record:', record)
+        return record
+      }).filter(r => r.name)
+      
+      if (payload.length === 0) return { success: false, error: '無有效資料' }
+      
+      console.log('Inserting', payload.length, 'records')
+      const { data, error } = await client.from('food').insert(payload).select()
+      if (error) throw error
+      
+      foods.value.push(...data)
+      return { 
+        success: true, 
+        count: data.length,
+        isAppwrite: isAppwrite,
+        message: isAppwrite ? '已轉換 ISO 8601 日期格式並匯入' : '匯入成功'
+      }
+    } catch (e) {
+      console.error('Import error:', e)
+      return { success: false, error: e.message }
+    } finally {
+      foodLoading.value = false
+    }
+  }
+
   return {
     foods,
     foodLoading,
@@ -246,6 +353,8 @@ export const useFoods = () => {
     sortedFoods,
     loadFoods,
     addFood,
+    importFoods,
+    isAppwriteFormat,
     editFood,
     updateFood,
     deleteFood,

@@ -1,7 +1,35 @@
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { createClient } from '@supabase/supabase-js'
+import { getSupabaseCredentials } from './useSettings'
+
+// 共享狀態
+let supabase = null
+let currentCredentials = null
+
+// 初始化 Supabase（優先使用 localStorage 設定）
+const initSupabase = () => {
+  if (typeof window === 'undefined') return null
+  
+  const creds = getSupabaseCredentials()
+  const config = useRuntimeConfig()
+  
+  const url = creds?.url || config.public.supabaseUrl
+  const key = creds?.key || config.public.supabaseAnonKey
+  const credKey = `${url}:${key?.slice(0, 20)}`
+  
+  if (supabase && currentCredentials !== credKey) {
+    supabase = null
+  }
+  
+  if (!supabase) {
+    supabase = createClient(url, key)
+    currentCredentials = credKey
+  }
+  
+  return supabase
+}
 
 export const useBanks = () => {
-  const supabase = useSupabaseClient()
   const banks = ref([])
   const loading = ref(false)
   const error = ref(null)
@@ -39,11 +67,14 @@ export const useBanks = () => {
 
   // 載入銀行資料
   const loadBanks = async () => {
+    const client = initSupabase()
+    if (!client) return
+    
     try {
       loading.value = true
       error.value = null
       
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await client
         .from('bank')
         .select('*')
         .order('id', { ascending: true })
@@ -61,9 +92,11 @@ export const useBanks = () => {
 
   // 新增銀行資料
   const addBank = async (bankData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
-      // 確保數值型別正確，移除 id 欄位讓資料庫自動生成
       const payload = {
         name: bankData.name,
         deposit: Number(bankData.deposit) || 0,
@@ -77,7 +110,7 @@ export const useBanks = () => {
         created_at: new Date().toISOString()
       }
 
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await client
         .from('bank')
         .insert([payload])
         .select()
@@ -98,9 +131,11 @@ export const useBanks = () => {
 
   // 更新銀行資料
   const updateBank = async (id, bankData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
-      // 只更新需要的欄位，不包含 id 和 created_at
       const payload = {
         name: bankData.name,
         deposit: Number(bankData.deposit) || 0,
@@ -113,7 +148,7 @@ export const useBanks = () => {
         account: bankData.account || null
       }
 
-      const { data, error: updateError } = await supabase
+      const { data, error: updateError } = await client
         .from('bank')
         .update(payload)
         .eq('id', id)
@@ -138,9 +173,12 @@ export const useBanks = () => {
 
   // 刪除銀行資料
   const deleteBank = async (id) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
-      const { error: deleteError } = await supabase
+      const { error: deleteError } = await client
         .from('bank')
         .delete()
         .eq('id', id)
@@ -159,6 +197,9 @@ export const useBanks = () => {
 
   // 批量新增預設銀行
   const initDefaultBanks = async () => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
     try {
       loading.value = true
       const newBanks = defaultBankNames.map(name => ({
@@ -169,7 +210,7 @@ export const useBanks = () => {
         created_at: new Date().toISOString()
       }))
 
-      const { data, error: insertError } = await supabase
+      const { data, error: insertError } = await client
         .from('bank')
         .insert(newBanks)
         .select()
@@ -193,6 +234,37 @@ export const useBanks = () => {
     return banks.value.reduce((sum, bank) => sum + (Number(bank.deposit) || 0), 0)
   })
 
+  // 批次匯入銀行
+  const importBanks = async (rows) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: 'No client' }
+    
+    try {
+      loading.value = true
+      const payload = rows.map(r => ({
+        name: r.name || r['銀行名稱'] || '',
+        deposit: Number(r.deposit || r['存款'] || 0) || 0,
+        account: r.account || r['帳號'] || null,
+        card: r.card || r['卡號'] || null,
+        site: r.site || r['分行/網點'] || null,
+        address: r.address || r['地址'] || null,
+        withdrawals: Number(r.withdrawals || r['提款'] || 0) || 0,
+        transfer: Number(r.transfer || r['轉帳'] || 0) || 0,
+        activity: r.activity || r['活動/備註'] || null,
+        created_at: new Date().toISOString()
+      })).filter(r => r.name)
+      if (payload.length === 0) return { success: false, error: '無有效資料' }
+      const { data, error: insertError } = await client.from('bank').insert(payload).select()
+      if (insertError) throw insertError
+      banks.value.push(...data)
+      return { success: true, count: data.length }
+    } catch (e) {
+      return { success: false, error: e.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     banks,
     loading,
@@ -202,6 +274,7 @@ export const useBanks = () => {
     getBankFavicon,
     loadBanks,
     addBank,
+    importBanks,
     updateBank,
     deleteBank,
     initDefaultBanks,
