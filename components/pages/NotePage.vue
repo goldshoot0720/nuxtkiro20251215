@@ -44,7 +44,7 @@
         <div v-for="article in filteredArticles" :key="article.id" class="note-card">
           <div class="note-header">
             <div class="note-meta">
-              <span class="note-date">{{ formatDate(article.newDate) }}</span>
+              <span class="note-date">{{ formatDate(article.newdate) }}</span>
             </div>
             <div class="note-actions">
               <button class="btn-icon" @click="editArticle(article)" title="編輯">✏️</button>
@@ -106,7 +106,7 @@
 
             <div class="form-group">
               <label>日期</label>
-              <input v-model="formData.newDate" type="date" class="form-input">
+              <input v-model="formData.newdate" type="date" class="form-input">
             </div>
 
             <div class="form-group">
@@ -190,7 +190,7 @@ const formData = reactive({
   id: null,
   title: '',
   content: '',
-  newDate: '',
+  newdate: '',
   url1: '',
   url2: '',
   url3: '',
@@ -239,7 +239,7 @@ const toggleSection = (section) => {
 const openAddModal = () => {
   isEditing.value = false
   resetForm()
-  formData.newDate = new Date().toISOString().split('T')[0]
+  formData.newdate = new Date().toISOString().split('T')[0]
   showModal.value = true
 }
 
@@ -248,8 +248,8 @@ const editArticle = (article) => {
   isEditing.value = true
   Object.assign(formData, article)
   // 處理日期格式以符合 input type="date"
-  if (formData.newDate) {
-    formData.newDate = formData.newDate.split('T')[0]
+  if (formData.newdate) {
+    formData.newdate = formData.newdate.split('T')[0]
   }
   showModal.value = true
 }
@@ -300,13 +300,13 @@ const confirmDelete = async (article) => {
 
 // CSV 匯出
 const exportArticlesCsv = () => {
-  const header = ['title', 'content', 'category', 'ref', 'newDate', 'url1', 'url2', 'url3', 'file1', 'file1name', 'file1type', 'file2', 'file2name', 'file2type', 'file3', 'file3name', 'file3type']
+  const header = ['title', 'content', 'category', 'ref', 'newdate', 'url1', 'url2', 'url3', 'file1', 'file1name', 'file1type', 'file2', 'file2name', 'file2type', 'file3', 'file3name', 'file3type']
   const rows = articles.value.map(a => [
     a.title || '',
     a.content || '',
     a.category || '',
     a.ref || '',
-    a.newDate || '',
+    a.newdate || '',
     a.url1 || '',
     a.url2 || '',
     a.url3 || '',
@@ -403,26 +403,59 @@ const handleImportCsv = async (e) => {
   const file = e.target.files?.[0]
   if (!file) return
   const text = await file.text()
-  const rows = parseCsv(text)
+  let rows = parseCsv(text)
   if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
-  
-  const isAppwrite = isAppwriteFormat(rows)
+
+  // 偵測 Appwrite 格式（有 $id, $createdAt 等系統欄位）
+  const firstRow = rows[0]
+  const isAppwrite = '$id' in firstRow || '$createdAt' in firstRow || '$collectionId' in firstRow
+
+  if (isAppwrite) {
+    console.log('偵測到 Appwrite CSV 格式，自動轉換欄位')
+    rows = rows.map(r => {
+      const mapped = {}
+      for (const [key, value] of Object.entries(r)) {
+        if (key.startsWith('$')) {
+          // $createdAt 對應 newdate（Supabase 全小寫）
+          if (key === '$createdAt' && !r.newDate && !r.newdate) {
+            mapped.newdate = value
+          }
+          // 其他 $ 開頭系統欄位跳過
+          continue
+        }
+        // Appwrite 的 newDate (camelCase) → Supabase 的 newdate (lowercase)
+        if (key === 'newDate') {
+          mapped.newdate = value
+        } else {
+          mapped[key] = value
+        }
+      }
+      return mapped
+    })
+  }
+
+  const hasIsoDate = isAppwrite || isAppwriteFormat(rows)
   let confirmMsg = `確定匯入 ${rows.length} 筆筆記資料？`
   if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 Appwrite CSV 格式
+
+已自動移除系統欄位（$id, $createdAt...）
+日期格式將自動轉換（ISO 8601 → YYYY-MM-DD）
+
+確定匯入 ${rows.length} 筆筆記資料？`
+  } else if (hasIsoDate) {
     confirmMsg = `ℹ️ 偵測到 ISO 8601 日期格式
 
 系統將自動轉換日期格式（ISO 8601 → YYYY-MM-DD）
 
 確定匯入 ${rows.length} 筆筆記資料？`
   }
-  
+
   if (!confirm(confirmMsg)) return
-  
+
   const result = await importArticles(rows)
   if (result.success) {
-    const msg = result.isAppwrite 
-      ? `✅ ${result.message}！共 ${result.count} 筆資料`
-      : `成功匯入 ${result.count} 筆筆記！`
+    let msg = `✅ ${result.message}！共 ${result.count} 筆資料`
     alert(msg)
   } else {
     alert('匯入失敗: ' + result.error)

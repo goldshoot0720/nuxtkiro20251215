@@ -226,7 +226,7 @@ const tables = reactive([
   content VARCHAR(1000),
   category VARCHAR(100),
   ref VARCHAR(100),
-  newDate TIMESTAMPTZ,
+  newdate TIMESTAMPTZ,
   url1 TEXT,
   url2 TEXT,
   url3 TEXT,

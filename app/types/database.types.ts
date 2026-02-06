@@ -159,7 +159,7 @@ export interface Database {
           content: string | null
           category: string | null
           ref: string | null
-          newDate: string
+          newdate: string
           url1: string | null
           url2: string | null
           url3: string | null
@@ -180,7 +180,7 @@ export interface Database {
           content?: string | null
           category?: string | null
           ref?: string | null
-          newDate?: string
+          newdate?: string
           url1?: string | null
           url2?: string | null
           url3?: string | null
@@ -201,7 +201,7 @@ export interface Database {
           content?: string | null
           category?: string | null
           ref?: string | null
-          newDate?: string
+          newdate?: string
           url1?: string | null
           url2?: string | null
           url3?: string | null

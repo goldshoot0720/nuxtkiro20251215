@@ -253,13 +253,43 @@ watch(() => formData.name, (newVal) => {
 const csvFileInput = ref(null)
 
 const parseCsv = (text) => {
-  const lines = text.replace(/\r\n/g, '\n').split('\n').filter(l => l.trim())
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim()); current = ''
+      } else { current += char }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const splitIntoRows = (text) => {
+    const rows = []
+    let current = ''
+    let inQuotes = false
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      if (char === '"') { inQuotes = !inQuotes; current += char }
+      else if (char === '\n' && !inQuotes) { if (current.trim()) rows.push(current); current = '' }
+      else { current += char }
+    }
+    if (current.trim()) rows.push(current)
+    return rows
+  }
+  const lines = splitIntoRows(text)
   if (lines.length < 2) return []
-  const headers = lines[0].split(',').map(h => h.replace(/^"|"$/g, '').trim())
+  const headers = parseRow(lines[0])
   return lines.slice(1).map(line => {
-    const cells = line.match(/(".*?"|[^,]*)/g) || []
+    const cells = parseRow(line)
     const obj = {}
-    headers.forEach((h, i) => { obj[h] = (cells[i] || '').replace(/^"|"$/g, '').replace(/""/g, '"').trim() })
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
     return obj
   })
 }
@@ -294,12 +324,34 @@ const handleImportCsv = async (e) => {
   const file = e.target.files?.[0]
   if (!file) return
   const text = await file.text()
-  const rows = parseCsv(text)
+  let rows = parseCsv(text)
   if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
-  if (!confirm(`確定匯入 ${rows.length} 筆銀行資料？`)) return
+
+  // 偵測 Appwrite 格式
+  const firstRow = rows[0]
+  const isAppwrite = '$id' in firstRow || '$createdAt' in firstRow || '$collectionId' in firstRow
+
+  if (isAppwrite) {
+    console.log('偵測到 Appwrite CSV 格式，自動轉換欄位')
+    rows = rows.map(r => {
+      const mapped = {}
+      for (const [key, value] of Object.entries(r)) {
+        if (key.startsWith('$')) continue
+        mapped[key] = value
+      }
+      return mapped
+    })
+  }
+
+  let confirmMsg = `確定匯入 ${rows.length} 筆銀行資料？`
+  if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 Appwrite CSV 格式\n\n已自動移除系統欄位（$id, $createdAt...）\n\n確定匯入 ${rows.length} 筆銀行資料？`
+  }
+
+  if (!confirm(confirmMsg)) return
   const result = await importBanks(rows)
   if (result.success) {
-    alert(`成功匯入 ${result.count} 筆銀行帳戶！`)
+    alert(`✅ 成功匯入 ${result.count} 筆銀行帳戶！`)
   } else {
     alert('匯入失敗: ' + result.error)
   }

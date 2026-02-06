@@ -14,9 +14,26 @@
             符合 {{ filteredAccounts.length }} 筆資料
           </div>
         </div>
-        <button class="btn-primary" @click="openAddModal">
-          <span class="icon">➕</span> 新增項目
-        </button>
+        <div class="action-buttons">
+          <div class="csv-actions">
+            <button v-if="accounts.length > 0" @click="exportCsv" class="btn-export">
+              <span class="icon">📤</span> 匯出 CSV
+            </button>
+            <button @click="$refs.csvFileInput.click()" class="btn-import">
+              <span class="icon">📥</span> 匯入 CSV
+            </button>
+            <input
+              ref="csvFileInput"
+              type="file"
+              accept=".csv"
+              style="display:none"
+              @change="handleImportCsv"
+            >
+          </div>
+          <button class="btn-primary" @click="openAddModal">
+            <span class="icon">➕</span> 新增項目
+          </button>
+        </div>
       </div>
       
       <!-- 載入中 -->
@@ -80,13 +97,13 @@
             </div>
 
             <div class="items-container">
-              <div v-for="i in 15" :key="i" class="item-block">
+              <div v-for="i in 37" :key="i" class="item-block">
                 <div class="item-header">
                   <span class="item-number">編號 {{ i }}</span>
                 </div>
                 <div class="item-fields">
                   <div class="field-group">
-                    <label class="field-label">網站名稱 01~15</label>
+                    <label class="field-label">網站名稱 01~37</label>
                     <input 
                       v-model="formData[`site${padIndex(i)}`]" 
                       type="text" 
@@ -95,7 +112,7 @@
                     >
                   </div>
                   <div class="field-group">
-                    <label class="field-label">備註 01~15</label>
+                    <label class="field-label">備註 01~37</label>
                     <textarea 
                       v-model="formData[`note${padIndex(i)}`]" 
                       class="form-textarea" 
@@ -131,13 +148,15 @@ import { ref, onMounted, reactive, computed } from 'vue'
 import PageContainer from '../layout/PageContainer.vue'
 import { useCommonAccounts } from '../../composables/useCommonAccounts'
 
-const { 
-  accounts, 
-  loading, 
-  loadAccounts, 
-  addAccount, 
-  updateAccount, 
-  deleteAccount 
+const {
+  accounts,
+  loading,
+  loadAccounts,
+  addAccount,
+  updateAccount,
+  deleteAccount,
+  importAccounts,
+  COMMON_FIELDS
 } = useCommonAccounts()
 
 // 狀態
@@ -152,11 +171,12 @@ const formData = reactive({})
 // 初始化表單數據結構
 const initFormData = () => {
   const data = { id: null, name: '' }
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     data[`site${key}`] = ''
     data[`note${key}`] = ''
   }
+  data.photohash = ''
   return data
 }
 
@@ -168,15 +188,15 @@ const padIndex = (num) => {
 // 獲取預覽項目
 const getPreviewItems = (account) => {
   const items = []
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     const site = account[`site${key}`]
     const note = account[`note${key}`]
-    
+
     if (site || note) {
       items.push({ site, note })
     }
-    
+
     if (items.length >= 5) break
   }
   return items
@@ -185,7 +205,7 @@ const getPreviewItems = (account) => {
 // 計算非空項目數量
 const getNonEmptyCount = (account) => {
   let count = 0
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     if (account[`site${key}`] || account[`note${key}`]) {
       count++
@@ -207,8 +227,8 @@ const filteredAccounts = computed(() => {
       return true
     }
     
-    // 搜尋 site01~site15
-    for (let i = 1; i <= 15; i++) {
+    // 搜尋 site01~site37
+    for (let i = 1; i <= 37; i++) {
       const key = padIndex(i)
       const site = account[`site${key}`]
       if (site && site.toLowerCase().includes(query)) {
@@ -238,11 +258,12 @@ const editAccount = (account) => {
   // 複製數據到 formData
   const data = { ...account }
   // 確保所有欄位都存在，避免 undefined
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     if (data[`site${key}`] === undefined) data[`site${key}`] = ''
     if (data[`note${key}`] === undefined) data[`note${key}`] = ''
   }
+  if (data.photohash === undefined) data.photohash = ''
   Object.assign(formData, data)
   showModal.value = true
 }
@@ -273,8 +294,8 @@ const handleSubmit = async () => {
   // 檢查網站名稱是否有重複
   const siteNames = []
   const duplicateSites = []
-  
-  for (let i = 1; i <= 15; i++) {
+
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     const site = formData[`site${key}`]
     
@@ -299,11 +320,12 @@ const handleSubmit = async () => {
   const payload = { ...formData }
   
   // 清理 undefined
-  for (let i = 1; i <= 15; i++) {
+  for (let i = 1; i <= 37; i++) {
     const key = padIndex(i)
     if (!payload[`site${key}`]) payload[`site${key}`] = null
     if (!payload[`note${key}`]) payload[`note${key}`] = null
   }
+  if (!payload.photohash) payload.photohash = null
 
   let result
   if (isEditing.value) {
@@ -329,6 +351,133 @@ const confirmDelete = async (account) => {
   if (confirm(`確定要刪除 ${account.name} 嗎？`)) {
     await deleteAccount(account.id)
   }
+}
+
+// CSV 匯出
+const exportCsv = () => {
+  const header = COMMON_FIELDS
+  const rows = accounts.value.map(a =>
+    header.map(field => a[field] || '')
+  )
+  const bom = '\uFEFF'
+  const csvContent = bom + [header, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = 'supabase-commonaccount.csv'
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+// CSV 匯入
+const csvFileInput = ref(null)
+
+const parseCsv = (text) => {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"'
+          i++
+        } else {
+          inQuotes = !inQuotes
+        }
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim())
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    cells.push(current.trim())
+    return cells
+  }
+
+  const splitIntoRows = (text) => {
+    const rows = []
+    let current = ''
+    let inQuotes = false
+    text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i]
+      if (char === '"') {
+        inQuotes = !inQuotes
+        current += char
+      } else if (char === '\n' && !inQuotes) {
+        if (current.trim()) rows.push(current)
+        current = ''
+      } else {
+        current += char
+      }
+    }
+    if (current.trim()) rows.push(current)
+    return rows
+  }
+
+  const lines = splitIntoRows(text)
+  if (lines.length < 2) return []
+
+  const headers = parseRow(lines[0])
+  console.log('CSV Headers:', headers)
+
+  return lines.slice(1).map((line, idx) => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    if (idx === 0) console.log('First row parsed:', obj)
+    return obj
+  })
+}
+
+const handleImportCsv = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  const text = await file.text()
+  let rows = parseCsv(text)
+  if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
+
+  // 偵測 Appwrite 格式（有 $id, $createdAt 等系統欄位）
+  const firstRow = rows[0]
+  const isAppwrite = '$id' in firstRow || '$createdAt' in firstRow || '$collectionId' in firstRow
+
+  if (isAppwrite) {
+    console.log('偵測到 Appwrite CSV 格式，自動轉換欄位')
+    rows = rows.map(r => {
+      const mapped = {}
+      for (const [key, value] of Object.entries(r)) {
+        // 跳過 $ 開頭系統欄位
+        if (key.startsWith('$')) continue
+        mapped[key] = value
+      }
+      return mapped
+    })
+  }
+
+  let confirmMsg = `確定匯入 ${rows.length} 筆常用項目資料？`
+  if (isAppwrite) {
+    confirmMsg = `ℹ️ 偵測到 Appwrite CSV 格式
+
+已自動移除系統欄位（$id, $createdAt...）
+
+確定匯入 ${rows.length} 筆常用項目資料？`
+  }
+
+  if (!confirm(confirmMsg)) return
+
+  const result = await importAccounts(rows)
+  if (result.success) {
+    alert(`✅ ${result.message}！共 ${result.count} 筆資料`)
+  } else {
+    alert('匯入失敗: ' + result.error)
+  }
+  e.target.value = ''
 }
 
 // SEO
@@ -409,6 +558,41 @@ useHead({
   color: #8ec5fc;
   font-weight: 500;
   padding-left: 0.25rem;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.csv-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-export, .btn-import {
+  padding: 0.6rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+}
+
+.btn-export:hover {
+  background: #f0fdf4;
+  border-color: #86efac;
+}
+
+.btn-import:hover {
+  background: #fef3c7;
+  border-color: #fcd34d;
 }
 
 .common-grid {

@@ -45,15 +45,40 @@
             ref="foodPageRef"
           />
 
-          <!-- 影片管理（暫未實作） -->
-
           <!-- 圖片庫 -->
-          <GalleryPage 
+          <GalleryPage
             v-if="currentPage === 'gallery'"
-            ref="galleryPageRef"
           />
 
-          <!-- 音樂庫（暫未實作） -->
+          <!-- 影片管理 -->
+          <VideoDBPage
+            v-if="currentPage === 'video'"
+          />
+
+          <!-- 音樂管理 -->
+          <MusicDBPage
+            v-if="currentPage === 'music'"
+          />
+
+          <!-- 文件管理 -->
+          <DocumentPage
+            v-if="currentPage === 'document'"
+          />
+
+          <!-- 播客管理 -->
+          <PodcastPage
+            v-if="currentPage === 'podcast'"
+          />
+
+          <!-- 例行事務 -->
+          <RoutinePage
+            v-if="currentPage === 'routine'"
+          />
+
+          <!-- 關於 -->
+          <AboutPage
+            v-if="currentPage === 'about'"
+          />
 
           <!-- 銀行統計 -->
           <BankPage 
@@ -145,6 +170,12 @@ import DashboardPage from '../components/pages/DashboardPage.vue'
 import SubscriptionPage from '../components/pages/SubscriptionPage.vue'
 import FoodPage from '../components/pages/FoodPage.vue'
 import GalleryPage from '../components/pages/GalleryPage.vue'
+import VideoDBPage from '../components/pages/VideoDBPage.vue'
+import MusicDBPage from '../components/pages/MusicDBPage.vue'
+import DocumentPage from '../components/pages/DocumentPage.vue'
+import PodcastPage from '../components/pages/PodcastPage.vue'
+import RoutinePage from '../components/pages/RoutinePage.vue'
+import AboutPage from '../components/pages/AboutPage.vue'
 import NotePage from '../components/pages/NotePage.vue'
 import CommonPage from '../components/pages/CommonPage.vue'
 import BankPage from '../components/pages/BankPage.vue'
@@ -153,8 +184,6 @@ import HomePage from '../components/pages/HomePage.vue'
 import AppSidebar from '../components/layout/AppSidebar.vue'
 import AppHeader from '../components/layout/AppHeader.vue'
 import ToastContainer from '../components/ui/ToastContainer.vue'
-import PageContainer from '../components/layout/PageContainer.vue'
-import EmptyState from '../components/ui/EmptyState.vue'
 
 // 使用 composables
 import { useSubscriptions } from '../composables/useSubscriptions'
@@ -166,7 +195,6 @@ import { useScroll } from '../composables/useScroll'
 // 組件引用
 const subscriptionPageRef = ref(null)
 const foodPageRef = ref(null)
-const galleryPageRef = ref(null)
 const bankPageRef = ref(null)
 
 // 使用 composables
@@ -198,14 +226,7 @@ const {
 const subscriptionsCount = computed(() => subscriptions.value.length)
 const foodsCount = computed(() => foods.value.length)
 const isDevelopment = computed(() => false) // 設為 true 以啟用滾動調試
-const placeholderPages = {
-  video: { title: '鋒兄影片', icon: '🎬', description: '影片管理功能正在準備中。' },
-  music: { title: '鋒兄音樂', icon: '🎵', description: '音樂管理功能正在準備中。' },
-  document: { title: '鋒兄文件', icon: '📄', description: '文件管理功能正在準備中。' },
-  podcast: { title: '鋒兄播客', icon: '🎙️', description: '播客內容正在準備中。' },
-  routine: { title: '鋒兄例行', icon: '📅', description: '例行管理功能正在準備中。' },
-  about: { title: '鋒兄關於', icon: 'ℹ️', description: '關於頁面內容正在準備中。' }
-}
+const placeholderPages = {}
 const placeholderConfig = computed(() => placeholderPages[currentPage.value] || null)
 
 // 生命週期

@@ -121,6 +121,60 @@ export const useCommonAccounts = () => {
     }
   }
 
+  // commonaccount 表允許的欄位（Supabase 全小寫）
+  const COMMON_FIELDS = (() => {
+    const fields = ['name']
+    for (let i = 1; i <= 37; i++) {
+      const key = i.toString().padStart(2, '0')
+      fields.push(`site${key}`, `note${key}`)
+    }
+    fields.push('photohash')
+    return fields
+  })()
+
+  // 批次匯入
+  const importAccounts = async (rows) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+
+    try {
+      loading.value = true
+
+      const payload = rows.map(r => {
+        const row = {}
+        COMMON_FIELDS.forEach(field => {
+          if (field === 'name') {
+            row[field] = r[field] || r.Name || ''
+          } else if (r[field] !== undefined && r[field] !== '') {
+            row[field] = r[field]
+          }
+        })
+        return row
+      }).filter(r => r.name)
+
+      if (payload.length === 0) return { success: false, error: '無有效資料（需有 name 欄位）' }
+
+      console.log('Inserting', payload.length, 'common accounts')
+      console.log('Sample payload:', payload[0])
+
+      const { data, error: insertError } = await client.from('commonaccount').insert(payload).select()
+      if (insertError) throw insertError
+
+      accounts.value.push(...data)
+
+      return {
+        success: true,
+        count: data.length,
+        message: '匯入成功'
+      }
+    } catch (e) {
+      console.error('Import error:', e)
+      return { success: false, error: e.message }
+    } finally {
+      loading.value = false
+    }
+  }
+
   // 刪除資料
   const deleteAccount = async (id) => {
     const client = initSupabase()
@@ -152,6 +206,8 @@ export const useCommonAccounts = () => {
     loadAccounts,
     addAccount,
     updateAccount,
-    deleteAccount
+    deleteAccount,
+    importAccounts,
+    COMMON_FIELDS
   }
 }

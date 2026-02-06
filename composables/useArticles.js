@@ -9,23 +9,23 @@ let currentCredentials = null
 // 初始化 Supabase（優先使用 localStorage 設定）
 const initSupabase = () => {
   if (typeof window === 'undefined') return null
-  
+
   const creds = getSupabaseCredentials()
   const config = useRuntimeConfig()
-  
+
   const url = creds?.url || config.public.supabaseUrl
   const key = creds?.key || config.public.supabaseAnonKey
   const credKey = `${url}:${key?.slice(0, 20)}`
-  
+
   if (supabase && currentCredentials !== credKey) {
     supabase = null
   }
-  
+
   if (!supabase) {
     supabase = createClient(url, key)
     currentCredentials = credKey
   }
-  
+
   return supabase
 }
 
@@ -38,18 +38,18 @@ export const useArticles = () => {
   const loadArticles = async () => {
     const client = initSupabase()
     if (!client) return
-    
+
     try {
       loading.value = true
       error.value = null
-      
+
       const { data, error: fetchError } = await client
         .from('article')
         .select('*')
-        .order('newDate', { ascending: false })
+        .order('newdate', { ascending: false })
 
       if (fetchError) throw fetchError
-      
+
       articles.value = data || []
     } catch (e) {
       console.error('Error loading articles:', e)
@@ -63,16 +63,16 @@ export const useArticles = () => {
   const addArticle = async (articleData) => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No client' }
-    
+
     try {
       loading.value = true
-      
+
       const payload = {
         title: articleData.title,
         content: articleData.content,
         category: articleData.category || null,
         ref: articleData.ref || null,
-        newDate: articleData.newDate || new Date().toISOString().split('T')[0],
+        newdate: articleData.newdate || new Date().toISOString().split('T')[0],
         url1: articleData.url1 || null,
         url2: articleData.url2 || null,
         url3: articleData.url3 || null,
@@ -96,7 +96,7 @@ export const useArticles = () => {
 
       if (data) {
         articles.value.unshift(data[0])
-        articles.value.sort((a, b) => new Date(b.newDate) - new Date(a.newDate))
+        articles.value.sort((a, b) => new Date(b.newdate) - new Date(a.newdate))
       }
       return { success: true }
     } catch (e) {
@@ -111,16 +111,16 @@ export const useArticles = () => {
   const updateArticle = async (id, articleData) => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No client' }
-    
+
     try {
       loading.value = true
-      
+
       const payload = {
         title: articleData.title,
         content: articleData.content,
         category: articleData.category || null,
         ref: articleData.ref || null,
-        newDate: articleData.newDate,
+        newdate: articleData.newdate,
         url1: articleData.url1 || null,
         url2: articleData.url2 || null,
         url3: articleData.url3 || null,
@@ -147,7 +147,7 @@ export const useArticles = () => {
         const index = articles.value.findIndex(a => a.id === id)
         if (index !== -1) {
           articles.value[index] = data[0]
-          articles.value.sort((a, b) => new Date(b.newDate) - new Date(a.newDate))
+          articles.value.sort((a, b) => new Date(b.newdate) - new Date(a.newdate))
         }
       }
       return { success: true }
@@ -163,7 +163,7 @@ export const useArticles = () => {
   const deleteArticle = async (id) => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No client' }
-    
+
     try {
       loading.value = true
       const { error: deleteError } = await client
@@ -183,12 +183,12 @@ export const useArticles = () => {
     }
   }
 
-  // 檢測是否為 Appwrite 格式（ISO 8601 日期）
+  // 檢測是否為 Appwrite 格式（有 $id 或 ISO 8601 日期）
   const isAppwriteFormat = (rows) => {
     if (!rows || rows.length === 0) return false
     const firstRow = rows[0]
-    const hasIsoDate = firstRow.newDate && firstRow.newDate.includes('T')
-    return hasIsoDate
+    return ('$id' in firstRow) || ('$createdAt' in firstRow) ||
+      (firstRow.newDate && firstRow.newDate.includes('T'))
   }
 
   // 轉換 ISO 8601 日期格式為簡單日期
@@ -200,58 +200,63 @@ export const useArticles = () => {
     return isoDate
   }
 
-  // 批次匯入筆記
+  // article 表允許的欄位（Supabase 全小寫）
+  const ARTICLE_FIELDS = [
+    'title', 'content', 'category', 'ref', 'newdate',
+    'url1', 'url2', 'url3',
+    'file1', 'file1name', 'file1type',
+    'file2', 'file2name', 'file2type',
+    'file3', 'file3name', 'file3type'
+  ]
+
+  // 批次匯入筆記（相容 Appwrite CSV 與 Supabase CSV）
   const importArticles = async (rows) => {
     const client = initSupabase()
     if (!client) return { success: false, error: '無法連接資料庫' }
-    
+
     try {
       loading.value = true
-      
+
       const isAppwrite = isAppwriteFormat(rows)
       console.log('Import format - isAppwrite:', isAppwrite)
-      
+
       const payload = rows.map((r) => {
-        let newDate = r.newDate || null
-        if (newDate && newDate.includes('T')) {
-          newDate = convertAppwriteDate(newDate)
+        // Appwrite 用 newDate (camelCase)，Supabase 用 newdate (lowercase)
+        let dateVal = r.newdate || r.newDate || r.$createdAt || null
+        if (dateVal && dateVal.includes('T')) {
+          dateVal = convertAppwriteDate(dateVal)
         }
-        
-        return {
-          title: r.title || '',
-          content: r.content || '',
-          category: r.category || null,
-          ref: r.ref || null,
-          newDate: newDate,
-          url1: r.url1 || null,
-          url2: r.url2 || null,
-          url3: r.url3 || null,
-          file1: r.file1 || null,
-          file1name: r.file1name || null,
-          file1type: r.file1type || null,
-          file2: r.file2 || null,
-          file2name: r.file2name || null,
-          file2type: r.file2type || null,
-          file3: r.file3 || null,
-          file3name: r.file3name || null,
-          file3type: r.file3type || null
-        }
+
+        const row = {}
+        ARTICLE_FIELDS.forEach(field => {
+          if (field === 'newdate') {
+            row.newdate = dateVal
+          } else if (field === 'title' || field === 'content') {
+            row[field] = r[field] || ''
+          } else if (r[field] !== undefined && r[field] !== '') {
+            row[field] = r[field]
+          }
+        })
+
+        return row
       }).filter(r => r.title || r.content)
-      
+
       if (payload.length === 0) return { success: false, error: '無有效資料' }
-      
+
       console.log('Inserting', payload.length, 'articles')
+      console.log('Sample payload:', payload[0])
+
       const { data, error: insertError } = await client.from('article').insert(payload).select()
       if (insertError) throw insertError
-      
+
       articles.value.push(...data)
-      articles.value.sort((a, b) => new Date(b.newDate) - new Date(a.newDate))
-      
-      return { 
-        success: true, 
+      articles.value.sort((a, b) => new Date(b.newdate) - new Date(a.newdate))
+
+      return {
+        success: true,
         count: data.length,
         isAppwrite: isAppwrite,
-        message: isAppwrite ? '已轉換 ISO 8601 日期格式並匯入' : '匯入成功'
+        message: isAppwrite ? '已轉換 Appwrite 格式並匯入' : '匯入成功'
       }
     } catch (e) {
       console.error('Import error:', e)
