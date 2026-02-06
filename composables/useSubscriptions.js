@@ -14,7 +14,9 @@ const newSubscription = ref({
   account: '',
   price: null,
   nextdate: '',
-  note: ''
+  note: '',
+  iscontinue: true,
+  currency: 'TWD'
 })
 let supabase = null
 let isInitialized = false
@@ -69,6 +71,28 @@ export const useSubscriptions = () => {
     })
   })
 
+  // 欄位名稱轉換（資料庫 iscontinue ↔ Appwrite continue）
+  const normalizeSubscription = (sub) => {
+    if (!sub) return null
+    // 資料庫欄位是 iscontinue，但前端顯示使用 iscontinue
+    return {
+      ...sub,
+      iscontinue: sub.iscontinue !== false
+    }
+  }
+  
+  // CSV 欄位名映射（Appwrite 格式）
+  const CSV_FIELD_MAP = {
+    name: 'name',
+    site: 'site',
+    account: 'account',
+    price: 'price',
+    nextdate: 'nextdate',
+    note: 'note',
+    currency: 'currency',
+    continue: 'iscontinue'  // CSV 用 continue，資料庫用 iscontinue
+  }
+
   // 載入訂閱資料
   const loadSubscriptions = async () => {
     const client = initSupabase()
@@ -84,12 +108,15 @@ export const useSubscriptions = () => {
         .select('*')
       
       if (error) throw error
+      console.log('載入訂閱資料:', data)
       if (data) {
-        subscriptions.value = data
+        subscriptions.value = data.map(normalizeSubscription).filter(Boolean)
+        console.log('處理後資料:', subscriptions.value)
         isInitialized = true
       }
     } catch (error) {
       console.error('載入訂閱資料失敗:', error)
+      alert('載入訂閱資料失敗: ' + error.message)
     } finally {
       subscriptionLoading.value = false
     }
@@ -120,14 +147,16 @@ export const useSubscriptions = () => {
           account: newSubscription.value.account || null,
           price: newSubscription.value.price || null,
           nextdate: newSubscription.value.nextdate || null,
-          note: newSubscription.value.note || null
+          note: newSubscription.value.note || null,
+          "iscontinue": newSubscription.value.iscontinue !== false,
+          currency: newSubscription.value.currency || 'TWD'
         })
         .select()
         .single()
       
       if (error) throw error
       
-      subscriptions.value.unshift(data)
+      subscriptions.value.unshift(normalizeSubscription(data))
       resetSubscriptionForm()
       alert('訂閱已新增成功！')
     } catch (error) {
@@ -135,6 +164,41 @@ export const useSubscriptions = () => {
       alert('新增訂閱失敗: ' + error.message)
     } finally {
       subscriptionLoading.value = false
+    }
+  }
+
+  // 行内新增訂閱
+  const addSubscriptionInline = async (formData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+    
+    if (!formData.name) {
+      return { success: false, error: '請輸入服務名稱' }
+    }
+    
+    try {
+      const { data, error } = await client
+        .from('subscription')
+        .insert({
+          name: formData.name,
+          site: formData.site || null,
+          account: formData.account || null,
+          price: formData.price || null,
+          nextdate: formData.nextdate || null,
+          note: formData.note || null,
+          "iscontinue": formData.iscontinue !== false,
+          currency: formData.currency || 'TWD'
+        })
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      subscriptions.value.unshift(normalizeSubscription(data))
+      return { success: true }
+    } catch (error) {
+      console.error('行内新增失敗:', error.message)
+      return { success: false, error: error.message }
     }
   }
 
@@ -147,7 +211,9 @@ export const useSubscriptions = () => {
       account: subscription.account || '',
       price: subscription.price,
       nextdate: subscription.nextdate || '',
-      note: subscription.note || ''
+      note: subscription.note || '',
+      iscontinue: subscription.iscontinue !== false,
+      currency: subscription.currency || 'TWD'
     }
     
     // 滾動到表單區域
@@ -181,7 +247,9 @@ export const useSubscriptions = () => {
           account: newSubscription.value.account || null,
           price: newSubscription.value.price || null,
           nextdate: newSubscription.value.nextdate || null,
-          note: newSubscription.value.note || null
+          note: newSubscription.value.note || null,
+          "iscontinue": newSubscription.value.iscontinue !== false,
+          currency: newSubscription.value.currency || 'TWD'
         })
         .eq('id', editingSubscription.value.id)
         .select()
@@ -192,7 +260,7 @@ export const useSubscriptions = () => {
       // 更新本地資料
       const index = subscriptions.value.findIndex(s => s.id === editingSubscription.value.id)
       if (index !== -1) {
-        subscriptions.value[index] = data
+        subscriptions.value[index] = normalizeSubscription(data)
       }
       
       resetSubscriptionForm()
@@ -202,6 +270,43 @@ export const useSubscriptions = () => {
       alert('更新訂閱失敗: ' + error.message)
     } finally {
       subscriptionLoading.value = false
+    }
+  }
+
+  // 行内更新訂閱
+  const updateSubscriptionInline = async (id, formData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+    
+    try {
+      const { data, error } = await client
+        .from('subscription')
+        .update({
+          name: formData.name,
+          site: formData.site || null,
+          account: formData.account || null,
+          nextdate: formData.nextdate || null,
+          price: formData.price || null,
+          currency: formData.currency || 'TWD',
+          note: formData.note || null,
+          "iscontinue": formData.iscontinue !== false
+        })
+        .eq('id', id)
+        .select()
+        .single()
+      
+      if (error) throw error
+      
+      // 更新本地資料
+      const index = subscriptions.value.findIndex(s => s.id === id)
+      if (index !== -1) {
+        subscriptions.value[index] = normalizeSubscription(data)
+      }
+      
+      return { success: true }
+    } catch (error) {
+      console.error('行内更新失敗:', error.message)
+      return { success: false, error: error.message }
     }
   }
 
@@ -232,6 +337,52 @@ export const useSubscriptions = () => {
     }
   }
 
+  // 批量刪除訂閱
+  const batchDeleteSubscriptions = async (ids) => {
+    const client = initSupabase()
+    if (!client || ids.length === 0) return { success: false, error: '無效操作' }
+    
+    try {
+      subscriptionLoading.value = true
+      
+      const { error } = await client
+        .from('subscription')
+        .delete()
+        .in('id', ids)
+      
+      if (error) throw error
+      
+      subscriptions.value = subscriptions.value.filter(s => !ids.includes(s.id))
+      return { success: true, count: ids.length }
+    } catch (error) {
+      console.error('批量刪除失敗:', error.message)
+      return { success: false, error: error.message }
+    } finally {
+      subscriptionLoading.value = false
+    }
+  }
+
+  // 切換續訂狀態
+  const toggleIsContinue = async (subscription) => {
+    const client = initSupabase()
+    if (!client) return
+    try {
+      const newIsContinue = subscription.iscontinue !== true
+      const { data, error } = await client
+        .from('subscription')
+        .update({ iscontinue: newIsContinue })
+        .eq('id', subscription.id)
+        .select()
+        .single()
+      if (error) throw error
+      const idx = subscriptions.value.findIndex(s => s.id === subscription.id)
+      if (idx !== -1) subscriptions.value[idx] = data
+    } catch (error) {
+      console.error('切換續訂狀態失敗:', error.message)
+      alert('切換續訂狀態失敗: ' + error.message)
+    }
+  }
+
   // 重置表單
   const resetSubscriptionForm = () => {
     newSubscription.value = {
@@ -240,7 +391,9 @@ export const useSubscriptions = () => {
       account: '',
       price: null,
       nextdate: '',
-      note: ''
+      note: '',
+      iscontinue: true,
+      currency: 'TWD'
     }
     editingSubscription.value = null
   }
@@ -252,6 +405,13 @@ export const useSubscriptions = () => {
     // Appwrite 格式的日期包含 'T'
     const hasIsoDate = firstRow.nextdate && firstRow.nextdate.includes('T')
     return hasIsoDate
+  }
+  
+  // 解析 CSV continue 欄位為布林值
+  const parseContinueField = (value) => {
+    if (value === undefined || value === null || value === '') return true
+    const str = String(value).toLowerCase().trim()
+    return str === 'true' || str === '1' || str === 'yes'
   }
 
   // 驗證日期格式（YYYY-MM-DD 或 ISO 8601）
@@ -297,13 +457,18 @@ export const useSubscriptions = () => {
           nextdate = convertAppwriteDate(nextdate)
         }
         
+        // CSV 用 'continue'，資料庫用 'iscontinue'
+        const iscontinue = parseContinueField(r.continue)
+        
         const record = {
           name: r.name || '',
           site: r.site || null,
           account: r.account || null,
           price: Number(r.price || 0) || null,
           nextdate: nextdate,
-          note: r.note || null
+          note: r.note || null,
+          currency: r.currency || 'TWD',
+          "iscontinue": iscontinue
         }
         
         if (idx === 0) console.log('First payload record:', record)
@@ -340,11 +505,15 @@ export const useSubscriptions = () => {
     sortedSubscriptions,
     loadSubscriptions,
     addSubscription,
+    addSubscriptionInline,
     importSubscriptions,
     isAppwriteFormat,
     editSubscription,
     updateSubscription,
+    updateSubscriptionInline,
     deleteSubscription,
+    batchDeleteSubscriptions,
+    toggleIsContinue,
     resetSubscriptionForm
   }
 }
