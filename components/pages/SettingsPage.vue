@@ -501,14 +501,16 @@ const tables = reactive([
     exists: false,
     sql: `CREATE TABLE subscription (
   id BIGSERIAL PRIMARY KEY,
-  name TEXT NOT NULL,
+  name VARCHAR(100) NOT NULL,
   site TEXT,
   account TEXT,
-  price NUMERIC,
+  price INTEGER,
   nextdate DATE,
   note TEXT,
-  renew BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  iscontinue BOOLEAN DEFAULT true,
+  currency TEXT DEFAULT 'TWD',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
 );`
   },
   {

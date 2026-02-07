@@ -76,7 +76,7 @@
 
     <!-- 訂閱列表 -->
     <div v-if="subscriptionLoading" class="loading">載入中...</div>
-    <div v-else-if="filteredSubscriptions.length === 0" class="empty-state">
+    <div v-else-if="filteredSubscriptions.length === 0 && !showAddRow" class="empty-state">
       暫無訂閱記錄
     </div>
     <div v-else class="sub-table-container">
