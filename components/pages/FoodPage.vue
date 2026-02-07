@@ -1,201 +1,122 @@
 <template>
   <div class="food-management">
-    <!-- 新增食物 -->
-    <div class="add-food">
-      <h3 class="collapsible-header" @click="showAddForm = !showAddForm">
-        <span>{{ editingFood ? '編輯食物' : '新增食物' }}</span>
-        <span class="collapse-icon" :class="{ open: showAddForm }">▶</span>
-      </h3>
-      <div class="food-form" v-show="showAddForm">
-        <div class="form-row">
-          <div class="form-group">
-            <label for="food-name">食物名稱</label>
-            <input 
-              type="text" 
-              id="food-name" 
-              v-model="newFood.name" 
-              placeholder="例如：牛奶、雞蛋"
-              required
-            >
-          </div>
-          <div class="form-group">
-            <label for="food-amount">數量</label>
-            <input 
-              type="number" 
-              id="food-amount" 
-              v-model="newFood.amount" 
-              placeholder="1"
-              min="1"
-            >
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="food-price">價格 (NT$)</label>
-            <input 
-              type="number" 
-              id="food-price" 
-              v-model="newFood.price" 
-              placeholder="100"
-              min="0"
-            >
-          </div>
-          <div class="form-group">
-            <label for="food-shop">購買商店</label>
-            <input 
-              type="text" 
-              id="food-shop" 
-              v-model="newFood.shop" 
-              placeholder="例如：全聯福利中心"
-            >
-          </div>
-        </div>
-        <div class="form-row">
-          <div class="form-group">
-            <label for="food-todate">到期日期</label>
-            <input 
-              type="date" 
-              id="food-todate" 
-              v-model="newFood.todate"
-              min="2025-01-01"
-              max="2125-12-31"
-            >
-          </div>
-          <div class="form-group">
-            <label for="food-photo">照片網址</label>
-            <input 
-              type="url" 
-              id="food-photo" 
-              v-model="newFood.photo" 
-              placeholder="https://example.com/photo.jpg"
-            >
-          </div>
-        </div>
-        <div class="form-actions">
-          <button
-            @click="handleSubmit"
-            class="auth-btn primary"
-            :disabled="foodLoading || !newFood.name"
-          >
-            {{ editingFood ? '更新食物' : '新增食物' }}
-          </button>
-          <button
-            @click="resetFoodForm"
-            class="auth-btn secondary"
-          >
-            {{ editingFood ? '取消編輯' : '清空' }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 搜尋食品 -->
-    <div class="search-bar">
-      <span class="search-icon">🔍</span>
+    <!-- 操作列 -->
+    <div class="actions-bar">
       <input
         v-model="searchQuery"
         type="text"
         class="search-input"
         placeholder="搜尋食品..."
-      >
+      />
+      <div class="csv-actions">
+        <button v-if="foods.length > 0" @click="exportFoodsCsv" class="btn-export">匯出 CSV</button>
+        <label class="btn-import">
+          匯入 CSV
+          <input ref="csvFileInput" type="file" accept=".csv" style="display:none" @change="handleImportCsv" />
+        </label>
+      </div>
+      <button @click="openAddModal" class="btn-add">新增</button>
     </div>
 
-    <!-- 食物列表 -->
-    <div class="food-list">
-      <div class="list-header">
-        <h3>食物庫存</h3>
-        <div class="summary">
-          <span class="total-count">共 {{ foods.length }} 個項目</span>
-          <span class="expiry-warning" v-if="expiringFoods.length > 0">
-            {{ expiringFoods.length }} 項即將到期
-          </span>
-          <div class="csv-actions">
-            <button
-              v-if="foods.length > 0"
-              @click="exportFoodsCsv"
-              class="auth-btn export"
-            >
-              匯出 CSV
-            </button>
-            <button @click="$refs.csvFileInput.click()" class="auth-btn import">
-              匯入 CSV
-            </button>
-            <input
-              ref="csvFileInput"
-              type="file"
-              accept=".csv"
-              style="display:none"
-              @change="handleImportCsv"
-            >
-          </div>
+    <!-- 摘要列 -->
+    <div class="summary-bar">
+      <span>共 {{ foods.length }} 個項目</span>
+      <span v-if="expiringFoods.length > 0" class="expiry-warning">{{ expiringFoods.length }} 項即將到期</span>
+    </div>
+
+    <!-- 食物表格 -->
+    <div v-if="foodLoading" class="loading">載入中...</div>
+    <div v-else-if="filteredFoods.length === 0" class="empty-state">暫無食品記錄</div>
+    <div v-else class="food-table-wrapper">
+      <table class="food-table">
+        <thead>
+          <tr>
+            <th>名稱</th>
+            <th>有效期限</th>
+            <th>數量</th>
+            <th>圖片</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="food in filteredFoods" :key="food.id">
+            <td class="td-name">{{ food.name }}</td>
+            <td class="td-date">
+              <span :class="getExpiryClass(food.todate)">{{ formatDate(food.todate) }}</span>
+            </td>
+            <td class="td-amount">{{ food.amount || '' }}</td>
+            <td class="td-photo">
+              <img
+                v-if="food.photo"
+                :src="food.photo"
+                :alt="food.name"
+                class="table-photo"
+                @click="previewImage = food.photo"
+              />
+            </td>
+            <td class="td-actions">
+              <button @click="openEditModal(food)" class="btn-edit">編輯</button>
+              <button @click="deleteFood(food.id)" class="btn-delete">刪除</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Image Preview Lightbox -->
+    <div v-if="previewImage" class="lightbox-overlay" @click="previewImage = null">
+      <img :src="previewImage" class="lightbox-image" />
+    </div>
+
+    <!-- Add/Edit Modal -->
+    <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>{{ editingFood ? '編輯食物' : '新增食物' }}</h2>
+          <button @click="closeModal" class="btn-close">&times;</button>
         </div>
-      </div>
-      
-      <div v-if="foods.length === 0" class="no-foods">
-        <p>目前還沒有任何食物</p>
-        <p>點擊上方按鈕新增您的第一個食物！</p>
-      </div>
-      
-      <div v-else class="foods-grid">
-        <div
-          v-for="food in filteredFoods"
-          :key="food.id"
-          class="food-card"
-          :class="getFoodStatusClass(food.todate)"
-        >
-          <div class="card-header">
-            <h4>{{ food.name }}</h4>
-            <div class="card-actions">
-              <button
-                @click="editFood(food); showAddForm = true"
-                class="action-btn edit"
-                title="編輯"
-              >
-                ✏️
-              </button>
-              <button
-                @click="deleteFood(food.id)"
-                class="action-btn delete"
-                title="刪除"
-              >
-                🗑️
+        <form @submit.prevent="handleSubmit" class="modal-form">
+          <div class="form-group">
+            <label>食物名稱 *</label>
+            <input v-model="newFood.name" type="text" required placeholder="例如：牛奶、雞蛋" />
+          </div>
+          <div class="form-group">
+            <label>數量</label>
+            <input v-model="newFood.amount" type="number" placeholder="1" min="1" />
+          </div>
+          <div class="form-group">
+            <label>價格 (NT$)</label>
+            <input v-model="newFood.price" type="number" placeholder="100" min="0" />
+          </div>
+          <div class="form-group">
+            <label>購買商店</label>
+            <input v-model="newFood.shop" type="text" placeholder="例如：全聯福利中心" />
+          </div>
+          <div class="form-group">
+            <label>到期日期</label>
+            <input v-model="newFood.todate" type="date" />
+          </div>
+          <div class="form-group">
+            <label>食物照片</label>
+            <div class="upload-area">
+              <input ref="photoFileInput" type="file" accept="image/*" @change="handlePhotoUpload" style="display:none" />
+              <button type="button" @click="$refs.photoFileInput.click()" class="btn-upload" :disabled="uploading">
+                {{ uploading ? '上傳中...' : '選擇照片' }}
               </button>
             </div>
-          </div>
-          
-          <div class="card-content">
-            <!-- 主要資訊區：照片和關鍵資訊並排 -->
-            <div class="main-info-row">
-              <div class="photo-section" v-if="food.photo">
-                <img :src="food.photo" :alt="food.name" class="food-photo" />
-              </div>
-              <div class="key-info-section">
-                <div class="key-info-item" v-if="food.amount">
-                  <span class="label">數量：</span>
-                  <span>{{ food.amount }}</span>
-                </div>
-                <div class="key-info-item" v-if="food.todate">
-                  <span class="label">到期：</span>
-                  <span :class="getExpiryClass(food.todate)">
-                    {{ formatDate(food.todate) }}
-                  </span>
-                </div>
-              </div>
+            <div v-if="newFood.photo" class="photo-preview">
+              <img :src="newFood.photo" alt="預覽" class="preview-image" />
+              <button type="button" @click="removePhoto" class="btn-remove">移除</button>
             </div>
-            
-            <!-- 其他資訊 -->
-            <div class="other-info">
-              <div class="info-row" v-if="food.price">
-                <span class="label">價格：</span>
-                <span class="price">NT$ {{ food.price }}</span>
-              </div>
-              <div class="info-row" v-if="food.shop">
-                <span class="label">購買商店：</span>
-                <span>{{ food.shop }}</span>
-              </div>
-            </div>
+            <input v-model="newFood.photo" type="text" placeholder="或直接輸入照片 URL" class="url-input" />
           </div>
-        </div>
+          <div class="modal-actions">
+            <button type="button" @click="closeModal" class="btn-cancel">取消</button>
+            <button type="submit" class="btn-submit" :disabled="foodLoading || !newFood.name">
+              {{ editingFood ? '更新' : '新增' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -205,9 +126,14 @@
 import { ref, computed, onMounted } from 'vue'
 import { useFoods } from '../../composables/useFoods'
 import { useFormatters } from '../../composables/useFormatters'
+import { useStorage } from '../../composables/useStorage'
 
 const searchQuery = ref('')
-const showAddForm = ref(false)
+const showModal = ref(false)
+const previewImage = ref(null)
+const photoFileInput = ref(null)
+
+const { uploading, uploadProgress, uploadFile } = useStorage()
 
 const {
   foods,
@@ -226,7 +152,7 @@ const {
   resetFoodForm
 } = useFoods()
 
-const { formatDate, getFoodStatusClass, getExpiryClass } = useFormatters()
+const { formatDate, getExpiryClass } = useFormatters()
 
 const filteredFoods = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
@@ -237,7 +163,47 @@ const filteredFoods = computed(() => {
   )
 })
 
-// 組件掛載時載入資料
+const openAddModal = () => {
+  resetFoodForm()
+  showModal.value = true
+}
+
+const openEditModal = (food) => {
+  editFood(food)
+  showModal.value = true
+}
+
+const closeModal = () => {
+  showModal.value = false
+  resetFoodForm()
+}
+
+const handleSubmit = async () => {
+  if (editingFood.value) {
+    await updateFood()
+  } else {
+    await addFood()
+  }
+  closeModal()
+}
+
+const handlePhotoUpload = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) { alert('請選擇圖片檔案'); return }
+  const result = await uploadFile(file, 'food')
+  if (result.success) {
+    newFood.value.photo = result.url
+  } else {
+    alert('圖片上傳失敗: ' + result.error)
+  }
+  e.target.value = ''
+}
+
+const removePhoto = () => {
+  newFood.value.photo = ''
+}
+
 onMounted(() => {
   loadFoods()
 })
@@ -245,13 +211,8 @@ onMounted(() => {
 const exportFoodsCsv = () => {
   const header = ['name', 'amount', 'price', 'shop', 'todate', 'photo', 'photohash']
   const rows = sortedFoods.value.map(food => [
-    food.name || '',
-    food.amount ?? '',
-    food.price ?? '',
-    food.shop || '',
-    food.todate || '',
-    food.photo || '',
-    food.photohash || ''
+    food.name || '', food.amount ?? '', food.price ?? '',
+    food.shop || '', food.todate || '', food.photo || '', food.photohash || ''
   ])
   const bom = '\uFEFF'
   const csvContent = bom + [header, ...rows]
@@ -269,77 +230,33 @@ const exportFoodsCsv = () => {
 const csvFileInput = ref(null)
 
 const parseCsv = (text) => {
-  // 更完善的 CSV 解析器，處理引號內的逗號和換行
   const parseRow = (line) => {
-    const cells = []
-    let current = ''
-    let inQuotes = false
-    
+    const cells = []; let current = ''; let inQuotes = false
     for (let i = 0; i < line.length; i++) {
       const char = line[i]
-      
-      if (char === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"'
-          i++ // 跳過轉義的引號
-        } else {
-          inQuotes = !inQuotes
-        }
-      } else if (char === ',' && !inQuotes) {
-        cells.push(current.trim())
-        current = ''
-      } else {
-        current += char
-      }
+      if (char === '"') { if (inQuotes && line[i+1] === '"') { current += '"'; i++ } else inQuotes = !inQuotes }
+      else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = '' }
+      else current += char
     }
-    cells.push(current.trim())
-    return cells
+    cells.push(current.trim()); return cells
   }
-  
-  // 先將文字分割成行，但要處理引號內的換行
   const splitIntoRows = (text) => {
-    const rows = []
-    let current = ''
-    let inQuotes = false
-    
-    // 統一換行符
+    const rows = []; let current = ''; let inQuotes = false
     text = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
-    
     for (let i = 0; i < text.length; i++) {
       const char = text[i]
-      
-      if (char === '"') {
-        inQuotes = !inQuotes
-        current += char
-      } else if (char === '\n' && !inQuotes) {
-        if (current.trim()) {
-          rows.push(current)
-        }
-        current = ''
-      } else {
-        current += char
-      }
+      if (char === '"') { inQuotes = !inQuotes; current += char }
+      else if (char === '\n' && !inQuotes) { if (current.trim()) rows.push(current); current = '' }
+      else current += char
     }
-    if (current.trim()) {
-      rows.push(current)
-    }
-    return rows
+    if (current.trim()) rows.push(current); return rows
   }
-  
   const lines = splitIntoRows(text)
   if (lines.length < 2) return []
-  
   const headers = parseRow(lines[0])
-  console.log('CSV Headers:', headers)
-  
-  return lines.slice(1).map((line, idx) => {
-    const cells = parseRow(line)
-    const obj = {}
-    headers.forEach((h, i) => { 
-      obj[h] = cells[i] || '' 
-    })
-    if (idx === 0) console.log('First row parsed:', obj)
-    return obj
+  return lines.slice(1).map(line => {
+    const cells = parseRow(line); const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' }); return obj
   })
 }
 
@@ -349,800 +266,425 @@ const handleImportCsv = async (e) => {
   const text = await file.text()
   const rows = parseCsv(text)
   if (rows.length === 0) { alert('CSV 檔案無有效資料'); return }
-  
-  // 檢測 ISO 8601 日期格式並提示使用者
   const isAppwrite = isAppwriteFormat(rows)
   let confirmMsg = `確定匯入 ${rows.length} 筆食品資料？`
-  if (isAppwrite) {
-    confirmMsg = `ℹ️ 偵測到 ISO 8601 日期格式
-
-系統將自動轉換日期格式（ISO 8601 → YYYY-MM-DD）
-
-確定匯入 ${rows.length} 筆食品資料？`
-  }
-  
+  if (isAppwrite) confirmMsg = `偵測到 ISO 8601 日期格式\n系統將自動轉換\n\n確定匯入 ${rows.length} 筆食品資料？`
   if (!confirm(confirmMsg)) return
-  
   const result = await importFoods(rows)
-  if (result.success) {
-    const msg = result.isAppwrite 
-      ? `✅ ${result.message}！共 ${result.count} 筆資料`
-      : `成功匯入 ${result.count} 筆食品！`
-    alert(msg)
-  } else {
-    alert('匯入失敗: ' + result.error)
-  }
+  if (result.success) alert(`成功匯入 ${result.count} 筆食品！`)
+  else alert('匯入失敗: ' + result.error)
   e.target.value = ''
 }
 
-const handleSubmit = () => {
-  if (editingFood.value) {
-    updateFood()
-  } else {
-    addFood()
-  }
-}
-
-// 暴露方法給父組件
-defineExpose({
-  foods,
-  expiringFoods
-})
+defineExpose({ foods, expiringFoods })
 </script>
 
 <style scoped>
-/* 食物管理樣式 */
 .food-management {
-  max-width: 1000px;
-  margin: 0 auto;
   animation: fadeIn 0.3s ease-in;
 }
 
-.user-info {
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.actions-bar {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #f8f9fa;
-  padding: 1.5rem;
-  border-radius: 8px;
-  margin-bottom: 2rem;
-}
-
-.add-food {
-  background: white;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-}
-
-.collapsible-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-  margin: 0;
-}
-
-.collapsible-header:hover {
-  color: #3498db;
-}
-
-.collapse-icon {
-  font-size: 0.8rem;
-  transition: transform 0.3s ease;
-  color: #95a5a6;
-}
-
-.collapse-icon.open {
-  transform: rotate(90deg);
-}
-
-.food-form {
-  margin-top: 1rem;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
   gap: 1rem;
   margin-bottom: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.75rem 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #27ae60;
+}
+
+.csv-actions { display: flex; gap: 0.5rem; }
+
+.btn-export,
+.btn-import {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-export:hover,
+.btn-import:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-import { display: inline-block; }
+
+.btn-add {
+  padding: 0.75rem 2rem;
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-add:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+}
+
+.summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(39, 174, 96, 0.08) 0%, rgba(46, 204, 113, 0.08) 100%);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  font-size: 0.95rem;
+  color: #555;
+}
+
+.expiry-warning {
+  color: #e74c3c;
+  font-weight: 700;
+}
+
+.loading,
+.empty-state {
+  text-align: center;
+  padding: 3rem;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+/* Table */
+.food-table-wrapper {
+  overflow-x: auto;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.food-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  min-width: 600px;
+}
+
+.food-table thead {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+}
+
+.food-table thead th {
+  padding: 0.875rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: white;
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+.food-table tbody tr {
+  border-bottom: 1px solid #f0f0f0;
+  transition: background 0.2s;
+}
+
+.food-table tbody tr:hover {
+  background: rgba(39, 174, 96, 0.06);
+}
+
+.food-table tbody tr:last-child { border-bottom: none; }
+
+.food-table td {
+  padding: 0.75rem 1rem;
+  font-size: 0.95rem;
+  color: #333;
+  vertical-align: middle;
+}
+
+.td-name { font-weight: 600; min-width: 100px; }
+
+.td-date { white-space: nowrap; font-size: 0.9rem; }
+
+.td-amount { text-align: center; }
+
+.td-photo { width: 60px; }
+
+.table-photo {
+  width: 50px;
+  height: 50px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.table-photo:hover { transform: scale(1.1); }
+
+.td-actions { white-space: nowrap; }
+
+.date-normal { color: #27ae60; }
+.date-soon { color: #f39c12; font-weight: bold; }
+.date-overdue { color: #e74c3c; font-weight: bold; }
+.date-critical { color: #e74c3c; font-weight: bold; }
+
+/* Lightbox */
+.lightbox-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  cursor: pointer;
+}
+
+.lightbox-image {
+  max-width: 90vw;
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Buttons */
+.btn-edit,
+.btn-delete {
+  padding: 0.4rem 0.8rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-edit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-edit:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.btn-delete {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+}
+
+.btn-delete:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.modal {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 550px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.btn-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  cursor: pointer;
+  color: #999;
+  line-height: 1;
+  padding: 0;
+  width: 32px; height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.btn-close:hover { background: #f5f5f5; color: #333; }
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
+  gap: 0.5rem;
 }
 
 .form-group label {
-  margin-bottom: 0.5rem;
-  font-weight: bold;
-  color: #2c3e50;
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
 }
 
 .form-group input {
   padding: 0.75rem;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
   font-size: 1rem;
+  font-family: inherit;
+  transition: border-color 0.3s;
 }
 
 .form-group input:focus {
   outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
-}
-
-.form-actions {
-  display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
-}
-
-.auth-btn {
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.auth-btn.primary {
-  background: #3498db;
-  color: white;
-}
-
-.auth-btn.primary:hover {
-  background: #2980b9;
-}
-
-.auth-btn.secondary {
-  background: #95a5a6;
-  color: white;
-}
-
-.auth-btn.secondary:hover {
-  background: #7f8c8d;
-}
-
-.auth-btn.export {
-  background: #27ae60;
-  color: white;
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-}
-
-.auth-btn.export:hover {
-  background: #219a52;
-}
-
-.auth-btn.import {
-  background: #2980b9;
-  color: white;
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-}
-
-.auth-btn.import:hover {
-  background: #2471a3;
-}
-
-.csv-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.auth-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.search-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  background: white;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 0.75rem 1rem;
-  margin-bottom: 2rem;
-}
-
-.search-icon {
-  font-size: 1.1rem;
-}
-
-.search-input {
-  flex: 1;
-  border: none;
-  outline: none;
-  font-size: 1rem;
-  background: transparent;
-  color: var(--text-primary, #2c3e50);
-}
-
-.search-input::placeholder {
-  color: #95a5a6;
-}
-
-.food-list {
-  background: white;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 2rem;
-}
-
-.list-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid #e1e8ed;
-}
-
-.summary {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.25rem;
-}
-
-.total-count {
-  color: #7f8c8d;
-  font-size: 0.9rem;
-}
-
-.expiry-warning {
-  color: #e74c3c;
-  font-weight: bold;
-}
-
-.no-foods {
-  text-align: center;
-  color: #7f8c8d;
-  padding: 3rem;
-}
-
-.foods-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1.5rem;
-}
-
-.food-card {
-  background: #f8f9fa;
-  border: 1px solid #e1e8ed;
-  border-radius: 8px;
-  padding: 1.5rem;
-  transition: box-shadow 0.2s;
-}
-
-.food-card:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.food-card.food-expired {
-  border-color: #e74c3c;
-  background: #fdf2f2;
-}
-
-.food-card.food-critical {
-  border-color: #f39c12;
-  background: #fef9e7;
-}
-
-.food-card.food-warning {
-  border-color: #f1c40f;
-  background: #fffbf0;
-}
-
-.food-card.food-normal {
   border-color: #27ae60;
-  background: #f8fff9;
 }
 
-.card-header {
+.upload-area {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e1e8ed;
-}
-
-.card-header h4 {
-  margin: 0;
-  color: #2c3e50;
-}
-
-.card-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.action-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.25rem;
-  border-radius: 4px;
-  transition: background-color 0.2s;
-}
-
-.action-btn:hover {
-  background: #e1e8ed;
-}
-
-.card-content {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-/* 食物卡片主要資訊區佈局 */
-.main-info-row {
-  display: flex;
-  align-items: flex-start;
   gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.photo-section {
-  flex-shrink: 0;
-}
-
-.food-photo {
-  width: 60px;
-  height: 60px;
-  object-fit: cover;
-  border-radius: 4px;
-  display: block;
-}
-
-.key-info-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.key-info-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.other-info {
-  border-top: 1px solid #e1e8ed;
-  padding-top: 1rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   margin-bottom: 0.5rem;
 }
 
-.label {
-  font-weight: bold;
-  color: #7f8c8d;
-  min-width: 80px;
+.btn-upload {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s;
 }
 
-.price {
-  color: #e74c3c;
-  font-weight: bold;
+.btn-upload:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-.date-normal {
-  color: #27ae60;
+.btn-upload:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.photo-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
 }
 
-.date-soon {
-  color: #f39c12;
-  font-weight: bold;
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-.date-overdue {
-  color: #e74c3c;
-  font-weight: bold;
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
 }
 
-.date-critical {
-  color: #e74c3c;
-  font-weight: bold;
+.btn-remove:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.url-input { margin-top: 0.5rem; }
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
-/* ===== 響應式設計優化 ===== */
-
-/* 桌面端優化 */
-@media (min-width: 1200px) {
-  .food-management {
-    max-width: 1200px;
-  }
-  
-  .foods-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 2rem;
-  }
-  
-  .food-card {
-    padding: 2rem;
-  }
-  
-  .food-photo {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .page-brand-title {
-    font-size: 2rem;
-  }
+.btn-cancel,
+.btn-submit {
+  flex: 1;
+  padding: 0.875rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: all 0.3s;
 }
 
-/* 平板端優化 - Redmi Pad SE 8.7 */
-@media (min-width: 769px) and (max-width: 1199px) {
-  .food-management {
-    max-width: 900px;
-  }
-  
-  .foods-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 1.5rem;
-  }
-  
-  .form-row {
-    gap: 1.2rem;
-  }
-  
-  .food-card {
-    padding: 1.8rem;
-  }
-  
-  .food-photo {
-    width: 70px;
-    height: 70px;
-  }
-  
-  .page-brand-title {
-    font-size: 1.8rem;
-  }
+.btn-cancel { background: #e0e0e0; color: #666; }
+.btn-cancel:hover { background: #d0d0d0; }
+
+.btn-submit {
+  background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  color: white;
 }
 
-/* 平板橫向模式 */
-@media (min-width: 769px) and (max-width: 1199px) and (orientation: landscape) {
-  .foods-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr 1fr;
-  }
-  
-  .main-info-row {
-    flex-direction: row;
-    align-items: center;
-  }
+.btn-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
 }
 
-/* 平板直向模式 */
-@media (min-width: 769px) and (max-width: 1199px) and (orientation: portrait) {
-  .foods-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  
-  .food-card {
-    max-width: 600px;
-    margin: 0 auto;
-  }
-}
-
-/* 手機端通用 */
-@media (max-width: 768px) {
-  .form-row {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-  
-  .list-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-  
-  .summary {
-    align-items: flex-start;
-    width: 100%;
-  }
-  
-  .foods-grid {
-    grid-template-columns: 1fr;
-    gap: 1.2rem;
-  }
-  
-  .food-card {
-    padding: 1.5rem;
-  }
-  
-  .main-info-row {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: flex-start;
-  }
-  
-  .photo-section {
-    align-self: center;
-  }
-  
-  .food-photo {
-    width: 80px;
-    height: 80px;
-  }
-  
-  .key-info-section {
-    width: 100%;
-    flex-direction: row;
-    justify-content: space-between;
-  }
-  
-  .key-info-item {
-    flex-direction: column;
-    align-items: center;
-    gap: 0.3rem;
-    text-align: center;
-  }
-  
-  .page-brand-title {
-    font-size: 1.5rem;
-  }
-}
-
-/* Samsung Galaxy A53 直向 */
-@media (max-width: 480px) and (orientation: portrait) {
-  .food-management {
-    padding: 0;
-  }
-  
-  .user-info,
-  .add-food,
-  .food-list {
-    margin-bottom: 1.5rem;
-    padding: 1.2rem;
-  }
-  
-  .food-card {
-    padding: 1.2rem;
-  }
-  
-  .food-photo {
-    width: 70px;
-    height: 70px;
-  }
-  
-  .form-group input {
-    padding: 0.6rem;
-    font-size: 0.95rem;
-  }
-  
-  .auth-btn {
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
-  }
-  
-  .page-brand-title {
-    font-size: 1.4rem;
-  }
-  
-  .card-header h4 {
-    font-size: 1.1rem;
-  }
-  
-  .key-info-item {
-    font-size: 0.9rem;
-  }
-  
-  .action-btn {
-    padding: 0.3rem;
-    font-size: 1.1rem;
-  }
-}
-
-/* Samsung Galaxy A53 橫向 */
-@media (max-width: 915px) and (max-height: 480px) and (orientation: landscape) {
-  .user-info,
-  .add-food,
-  .food-list {
-    padding: 1rem;
-    margin-bottom: 1rem;
-  }
-  
-  .food-card {
-    padding: 1rem;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.8rem;
-  }
-  
-  .main-info-row {
-    flex-direction: row;
-    gap: 1rem;
-  }
-  
-  .food-photo {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .key-info-section {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  
-  .page-brand-title {
-    font-size: 1.2rem;
-  }
-}
-
-/* iPhone SE2 直向 */
-@media (max-width: 375px) and (orientation: portrait) {
-  .user-info,
-  .add-food,
-  .food-list {
-    padding: 1rem;
-    margin-bottom: 1.2rem;
-  }
-  
-  .food-card {
-    padding: 1rem;
-  }
-  
-  .food-photo {
-    width: 60px;
-    height: 60px;
-  }
-  
-  .form-group input {
-    padding: 0.5rem;
-    font-size: 0.9rem;
-  }
-  
-  .form-group label {
-    font-size: 0.9rem;
-    margin-bottom: 0.4rem;
-  }
-  
-  .auth-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-  }
-  
-  .page-brand-title {
-    font-size: 1.3rem;
-  }
-  
-  .card-header h4 {
-    font-size: 1rem;
-  }
-  
-  .key-info-item {
-    font-size: 0.85rem;
-    gap: 0.2rem;
-  }
-  
-  .label {
-    font-size: 0.8rem;
-  }
-  
-  .action-btn {
-    padding: 0.25rem;
-    font-size: 1rem;
-  }
-}
-
-/* iPhone SE2 橫向 */
-@media (max-width: 667px) and (max-height: 375px) and (orientation: landscape) {
-  .user-info,
-  .add-food,
-  .food-list {
-    padding: 0.8rem;
-    margin-bottom: 0.8rem;
-  }
-  
-  .food-card {
-    padding: 0.8rem;
-  }
-  
-  .form-row {
-    grid-template-columns: 1fr 1fr;
-    gap: 0.6rem;
-  }
-  
-  .main-info-row {
-    flex-direction: row;
-    gap: 0.8rem;
-  }
-  
-  .food-photo {
-    width: 50px;
-    height: 50px;
-  }
-  
-  .key-info-section {
-    flex-direction: row;
-    gap: 1rem;
-  }
-  
-  .key-info-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.2rem;
-  }
-  
-  .page-brand-title {
-    font-size: 1.1rem;
-  }
-}
-
-/* 超小螢幕 */
-@media (max-width: 320px) {
-  .user-info,
-  .add-food,
-  .food-list {
-    padding: 0.8rem;
-    margin-bottom: 1rem;
-  }
-  
-  .food-card {
-    padding: 0.8rem;
-  }
-  
-  .food-photo {
-    width: 50px;
-    height: 50px;
-  }
-  
-  .form-group input {
-    padding: 0.4rem;
-    font-size: 0.85rem;
-  }
-  
-  .auth-btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.8rem;
-  }
-  
-  .page-brand-title {
-    font-size: 1.1rem;
-  }
-  
-  .card-header h4 {
-    font-size: 0.95rem;
-  }
-  
-  .key-info-item {
-    font-size: 0.8rem;
-  }
-  
-  .action-btn {
-    padding: 0.2rem;
-    font-size: 0.9rem;
-  }
-}
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 </style>

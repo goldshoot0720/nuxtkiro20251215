@@ -1,6 +1,18 @@
 import { ref } from 'vue'
 import { createClient } from '@supabase/supabase-js'
-import { getSupabaseCredentials } from './useSettings'
+import { getSupabaseCredentials, getSupabaseBucket } from './useSettings'
+
+// 取得 bucket 名稱：localStorage 帳號 → .env → 預設 'uploads'
+const getBucket = () => {
+  const fromSettings = getSupabaseBucket()
+  if (fromSettings) return fromSettings
+  try {
+    const config = useRuntimeConfig()
+    return config.public.supabaseBucket || 'uploads'
+  } catch {
+    return 'uploads'
+  }
+}
 
 let supabase = null
 let currentCredentials = null
@@ -27,11 +39,11 @@ export const useStorage = () => {
   /**
    * Upload file to Supabase Storage
    * @param {File} file - The file to upload
-   * @param {string} bucket - Storage bucket name
-   * @param {string} path - Optional path in bucket (defaults to file name)
+   * @param {string} folder - Folder name inside bucket (e.g. 'food', 'article')
+   * @param {string} customPath - Optional full custom path (overrides folder + auto name)
    * @returns {Promise<{success: boolean, url?: string, path?: string, error?: string}>}
    */
-  const uploadFile = async (file, bucket, path = null) => {
+  const uploadFile = async (file, folder = 'general', customPath = null) => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No Supabase client' }
 
@@ -39,15 +51,13 @@ export const useStorage = () => {
       uploading.value = true
       uploadProgress.value = 0
 
-      // Generate unique file path
+      // Generate unique file path: folder/timestamp_filename
       const timestamp = Date.now()
-      const fileExt = file.name.split('.').pop()
-      const fileName = path || `${timestamp}_${file.name}`
-      const filePath = `${fileName}`
+      const filePath = customPath || `${folder}/${timestamp}_${file.name}`
 
       // Upload file
       const { data, error } = await client.storage
-        .from(bucket)
+        .from(getBucket())
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -57,7 +67,7 @@ export const useStorage = () => {
 
       // Get public URL
       const { data: urlData } = client.storage
-        .from(bucket)
+        .from(getBucket())
         .getPublicUrl(filePath)
 
       uploadProgress.value = 100
@@ -78,17 +88,16 @@ export const useStorage = () => {
 
   /**
    * Delete file from Supabase Storage
-   * @param {string} bucket - Storage bucket name
-   * @param {string} path - File path in bucket
+   * @param {string} path - File path in bucket (e.g. 'food/123_photo.jpg')
    * @returns {Promise<{success: boolean, error?: string}>}
    */
-  const deleteFile = async (bucket, path) => {
+  const deleteFile = async (path) => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No Supabase client' }
 
     try {
       const { error } = await client.storage
-        .from(bucket)
+        .from(getBucket())
         .remove([path])
 
       if (error) throw error
@@ -102,35 +111,33 @@ export const useStorage = () => {
 
   /**
    * Get public URL for a file
-   * @param {string} bucket - Storage bucket name
    * @param {string} path - File path in bucket
    * @returns {string|null}
    */
-  const getPublicUrl = (bucket, path) => {
+  const getPublicUrl = (path) => {
     const client = initSupabase()
     if (!client) return null
 
     const { data } = client.storage
-      .from(bucket)
+      .from(getBucket())
       .getPublicUrl(path)
 
     return data.publicUrl
   }
 
   /**
-   * List files in a bucket
-   * @param {string} bucket - Storage bucket name
-   * @param {string} path - Optional path to list (defaults to root)
+   * List files in a bucket folder
+   * @param {string} folder - Folder path to list (defaults to root)
    * @returns {Promise<{success: boolean, files?: Array, error?: string}>}
    */
-  const listFiles = async (bucket, path = '') => {
+  const listFiles = async (folder = '') => {
     const client = initSupabase()
     if (!client) return { success: false, error: 'No Supabase client' }
 
     try {
       const { data, error } = await client.storage
-        .from(bucket)
-        .list(path)
+        .from(getBucket())
+        .list(folder)
 
       if (error) throw error
 
@@ -142,6 +149,7 @@ export const useStorage = () => {
   }
 
   return {
+    getBucket,
     uploading,
     uploadProgress,
     uploadFile,

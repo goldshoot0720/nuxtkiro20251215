@@ -163,8 +163,29 @@
                 <input v-model="formData.hash" type="text" class="form-input" />
               </div>
               <div class="form-group">
-                <label>封面</label>
-                <input v-model="formData.cover" type="text" class="form-input" placeholder="封面圖片 URL" />
+                <label>封面上傳</label>
+                <div class="upload-area">
+                  <input
+                    ref="coverFileInput"
+                    type="file"
+                    accept="image/*"
+                    @change="handleCoverUpload"
+                    style="display: none"
+                  />
+                  <button
+                    type="button"
+                    @click="$refs.coverFileInput.click()"
+                    class="btn-upload"
+                    :disabled="coverUploading"
+                  >
+                    {{ coverUploading ? '上傳中...' : '選擇封面' }}
+                  </button>
+                </div>
+                <div v-if="formData.cover" class="cover-preview">
+                  <img :src="formData.cover" alt="封面預覽" class="preview-image" />
+                  <button type="button" @click="removeCover" class="btn-remove">移除</button>
+                </div>
+                <input v-model="formData.cover" type="text" class="form-input" placeholder="或輸入封面 URL" />
               </div>
               <div class="modal-actions">
                 <button type="button" @click="closeModal" class="btn-cancel">
@@ -198,6 +219,8 @@ const searchQuery = ref('')
 const showModal = ref(false)
 const editingMusic = ref(null)
 const audioFileInput = ref(null)
+const coverFileInput = ref(null)
+const coverUploading = ref(false)
 const languageSelect = ref('')
 const formData = ref({
   name: '',
@@ -305,6 +328,36 @@ const removeAudio = () => {
   formData.value.filetype = ''
   if (audioFileInput.value) {
     audioFileInput.value.value = ''
+  }
+}
+
+// Cover upload handler
+const handleCoverUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  coverUploading.value = true
+  try {
+    const result = await uploadFile(file, 'music-covers')
+    if (result.success) {
+      formData.value.cover = result.url
+      alert('封面上傳成功！')
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Cover upload error:', error)
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+// Remove cover
+const removeCover = () => {
+  formData.value.cover = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
   }
 }
 
@@ -824,5 +877,24 @@ onMounted(() => {
   .btn-save {
     width: 100%;
   }
+}
+
+/* Cover Upload Styles */
+.cover-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 </style>

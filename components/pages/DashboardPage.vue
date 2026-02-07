@@ -53,6 +53,31 @@
         />
       </div>
 
+      <!-- 11 個資料表統計 -->
+      <BaseCard class="table-stats-section">
+        <div class="table-stats-header">
+          <div class="table-stats-title">
+            <span class="title-icon">🗄️</span>
+            <h3>資料表統計</h3>
+          </div>
+          <div class="table-stats-total">共 {{ totalRecords }} 筆資料</div>
+        </div>
+        <div class="table-stats-grid">
+          <div
+            v-for="t in tableStats"
+            :key="t.name"
+            class="table-stat-card"
+            @click="$emit('navigate', t.page)"
+          >
+            <span class="table-stat-icon">{{ t.icon }}</span>
+            <div class="table-stat-info">
+              <span class="table-stat-count">{{ t.count }}</span>
+              <span class="table-stat-label">{{ t.label }}</span>
+            </div>
+          </div>
+        </div>
+      </BaseCard>
+
       <!-- 快速操作 -->
       <BaseCard class="dashboard-actions">
         <div class="actions-header">
@@ -221,7 +246,19 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue'
 import { useDashboard } from '../../composables/useDashboard'
+import { useArticles } from '../../composables/useArticles'
+import { useBanks } from '../../composables/useBanks'
+import { useCommonAccounts } from '../../composables/useCommonAccounts'
+import { useDocuments } from '../../composables/useDocuments'
+import { useFoods } from '../../composables/useFoods'
+import { useImages } from '../../composables/useImages'
+import { useMusicRecords } from '../../composables/useMusicRecords'
+import { usePodcasts } from '../../composables/usePodcasts'
+import { useRoutines } from '../../composables/useRoutines'
+import { useSubscriptions } from '../../composables/useSubscriptions'
+import { useVideoRecords } from '../../composables/useVideoRecords'
 import PageContainer from '../layout/PageContainer.vue'
 import BaseCard from '../ui/BaseCard.vue'
 import BaseButton from '../ui/BaseButton.vue'
@@ -242,6 +279,49 @@ const {
   alertStats,
   formatDaysRemaining
 } = useDashboard()
+
+// 所有資料表
+const { articles, loadArticles } = useArticles()
+const { banks, loadBanks } = useBanks()
+const { accounts, loadAccounts } = useCommonAccounts()
+const { documents, loadDocuments } = useDocuments()
+const { foods, loadFoods } = useFoods()
+const { images, loadImages } = useImages()
+const { musics, loadMusics } = useMusicRecords()
+const { podcasts, loadPodcasts } = usePodcasts()
+const { routines, loadRoutines } = useRoutines()
+const { subscriptions, loadSubscriptions } = useSubscriptions()
+const { videos, loadVideos } = useVideoRecords()
+
+const tableStats = computed(() => [
+  { name: 'subscription', label: '訂閱管理', icon: '💳', count: subscriptions.value.length, page: 'subscription' },
+  { name: 'food', label: '食物庫存', icon: '🍔', count: foods.value.length, page: 'food' },
+  { name: 'article', label: '文章管理', icon: '📰', count: articles.value.length, page: 'note' },
+  { name: 'bank', label: '銀行帳戶', icon: '🏦', count: banks.value.length, page: 'bank' },
+  { name: 'commonaccount', label: '常用帳號', icon: '🔑', count: accounts.value.length, page: 'common' },
+  { name: 'commondocument', label: '通用文件', icon: '📄', count: documents.value.length, page: 'document' },
+  { name: 'image', label: '圖片管理', icon: '🖼️', count: images.value.length, page: 'gallery' },
+  { name: 'music', label: '音樂管理', icon: '🎵', count: musics.value.length, page: 'music' },
+  { name: 'podcast', label: '播客管理', icon: '🎧', count: podcasts.value.length, page: 'podcast' },
+  { name: 'routine', label: '例行事項', icon: '🔁', count: routines.value.length, page: 'routine' },
+  { name: 'video', label: '影片管理', icon: '🎬', count: videos.value.length, page: 'video' }
+])
+
+const totalRecords = computed(() => tableStats.value.reduce((sum, t) => sum + t.count, 0))
+
+onMounted(() => {
+  loadArticles()
+  loadBanks()
+  loadAccounts()
+  loadDocuments()
+  loadFoods()
+  loadImages()
+  loadMusics()
+  loadPodcasts()
+  loadRoutines()
+  loadSubscriptions()
+  loadVideos()
+})
 </script>
 
 <style scoped>
@@ -341,6 +421,85 @@ const {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 1.5rem;
+}
+
+/* 資料表統計 */
+.table-stats-section {
+  padding: 2rem;
+}
+
+.table-stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.table-stats-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.table-stats-title h3 {
+  color: var(--text-primary);
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.table-stats-total {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+}
+
+.table-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.table-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border-radius: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.table-stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px var(--shadow);
+  border-color: var(--primary);
+}
+
+.table-stat-icon {
+  font-size: 1.5rem;
+}
+
+.table-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.table-stat-count {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.table-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
 }
 
 /* 快速操作 */
@@ -528,6 +687,8 @@ const {
   .copyright-info { padding: 2rem 1.5rem; }
   .company-name { font-size: 1.6rem; }
   .dashboard-stats { grid-template-columns: 1fr; }
+  .table-stats-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 0.75rem; }
+  .table-stats-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
   .action-buttons { grid-template-columns: repeat(2, 1fr); }
   .info-grid { grid-template-columns: 1fr; }
   .additional-content { grid-template-columns: 1fr; }

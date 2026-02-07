@@ -103,12 +103,38 @@
             </div>
 
             <div class="form-group">
-              <label for="file">檔案</label>
+              <label>上傳影片</label>
+              <div class="upload-area">
+                <input
+                  ref="videoFileInput"
+                  type="file"
+                  accept="video/*"
+                  @change="handleVideoUpload"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  @click="$refs.videoFileInput.click()"
+                  class="btn-upload"
+                  :disabled="videoUploading"
+                >
+                  {{ videoUploading ? '上傳中...' : '選擇影片' }}
+                </button>
+                <span v-if="videoUploadProgress > 0" class="upload-progress">{{ videoUploadProgress }}%</span>
+              </div>
+              <div v-if="formData.file" class="video-preview">
+                <video :src="formData.file" controls class="preview-video"></video>
+                <button type="button" @click="removeVideo" class="btn-remove">移除</button>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="file">檔案路徑</label>
               <input
                 id="file"
                 v-model="formData.file"
                 type="text"
-                placeholder="影片檔案路徑或 URL"
+                placeholder="自動上傳或手動輸入 URL"
               />
             </div>
 
@@ -153,12 +179,33 @@
             </div>
 
             <div class="form-group">
-              <label for="cover">封面</label>
+              <label>封面上傳</label>
+              <div class="upload-area">
+                <input
+                  ref="coverFileInput"
+                  type="file"
+                  accept="image/*"
+                  @change="handleCoverUpload"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  @click="$refs.coverFileInput.click()"
+                  class="btn-upload"
+                  :disabled="coverUploading"
+                >
+                  {{ coverUploading ? '上傳中...' : '選擇封面' }}
+                </button>
+              </div>
+              <div v-if="formData.cover" class="cover-preview">
+                <img :src="formData.cover" alt="封面預覽" class="preview-image" />
+                <button type="button" @click="removeCover" class="btn-remove">移除</button>
+              </div>
               <input
                 id="cover"
                 v-model="formData.cover"
                 type="text"
-                placeholder="封面圖片 URL"
+                placeholder="或輸入封面 URL"
               />
             </div>
 
@@ -192,6 +239,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { useVideoRecords } from '../../composables/useVideoRecords'
+import { useStorage } from '../../composables/useStorage'
 
 useHead({
   title: '鋒兄影片 - 鋒兄AI Supabase'
@@ -210,6 +258,12 @@ const {
 
 // Search
 const searchQuery = ref('')
+
+// Upload state
+const videoFileInput = ref(null)
+const coverFileInput = ref(null)
+const { uploading: videoUploading, uploadProgress: videoUploadProgress, uploadFile } = useStorage()
+const coverUploading = ref(false)
 
 // Modal state
 const showModal = ref(false)
@@ -282,6 +336,66 @@ function closeModal() {
   showModal.value = false
   isEditing.value = false
   editingId.value = null
+}
+
+// 影片上傳處理
+async function handleVideoUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  try {
+    const result = await uploadFile(file, 'video')
+    if (result.success) {
+      formData.value.file = result.url
+      const ext = file.name.split('.').pop()
+      if (ext) formData.value.filetype = ext
+      alert('影片上傳成功！')
+    } else {
+      alert('上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    alert('上傳失敗: ' + error.message)
+  }
+}
+
+// 移除影片
+function removeVideo() {
+  formData.value.file = ''
+  formData.value.filetype = ''
+  if (videoFileInput.value) {
+    videoFileInput.value.value = ''
+  }
+}
+
+// 封面上傳處理
+async function handleCoverUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  coverUploading.value = true
+  try {
+    const result = await uploadFile(file, 'video-covers')
+    if (result.success) {
+      formData.value.cover = result.url
+      alert('封面上傳成功！')
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Cover upload error:', error)
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+// 移除封面
+function removeCover() {
+  formData.value.cover = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
+  }
 }
 
 async function handleSubmit() {
@@ -804,5 +918,82 @@ onMounted(() => {
   .modal-content {
     margin: 1rem;
   }
+}
+
+/* Upload Area Styles */
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.btn-upload {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-upload:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-upload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-progress {
+  font-size: 0.9rem;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.video-preview, .cover-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.preview-video {
+  max-width: 200px;
+  max-height: 120px;
+  border-radius: 6px;
+}
+
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-remove:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 </style>

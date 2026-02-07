@@ -19,6 +19,7 @@
                   <span class="account-badge" v-if="acc.id === activeAccountId">當前</span>
                   <span class="account-title">supabase-{{ acc.friendlyName || 'unnamed' }}</span>
                   <span class="account-url">{{ acc.supabaseUrl ? acc.supabaseUrl.replace('https://', '').replace('.supabase.co', '') : '未設定' }}</span>
+                  <span v-if="acc.bucket" class="account-bucket">📦 {{ acc.bucket }}</span>
                 </div>
                 <div class="account-card-actions">
                   <button 
@@ -79,6 +80,19 @@
                 <span class="form-hint">Supabase 專案的匿名公開金鑰</span>
               </div>
             </div>
+            <div class="form-row">
+              <label for="bucketName">SUPABASE_BUCKET</label>
+              <div class="form-field">
+                <input
+                  id="bucketName"
+                  v-model="bucketName"
+                  type="text"
+                  class="form-input"
+                  placeholder="uploads"
+                >
+                <span class="form-hint">Storage Bucket 名稱（預設 uploads）</span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -119,6 +133,23 @@
                 </div>
               </div>
             </div>
+            <!-- Storage Bucket 狀態 -->
+            <div class="table-status-item" style="margin-top: 1rem; border-top: 1px dashed var(--border-color); padding-top: 1rem;">
+              <div class="table-info">
+                <span class="table-icon">📦</span>
+                <span class="table-name">Storage Bucket</span>
+                <span class="table-db-name">({{ currentBucketName }})</span>
+              </div>
+              <div class="table-state">
+                <span v-if="bucketChecking" class="status-badge checking">檢查中...</span>
+                <span v-else-if="bucketExists" class="status-badge exists">✅ 已建立</span>
+                <template v-else>
+                  <span class="status-badge missing">❌ 未建立</span>
+                  <button class="btn-create-table" @click="showBucketHelp = true">建立說明</button>
+                </template>
+              </div>
+            </div>
+
             <button class="btn-check" @click="checkAllTables" :disabled="isChecking">
               <span class="icon">🔄</span> {{ isChecking ? '檢查中...' : '重新檢查' }}
             </button>
@@ -145,13 +176,53 @@
             </div>
           </div>
         </div>
+
+        <!-- Bucket Help Modal -->
+        <div v-if="showBucketHelp" class="modal-overlay" @click.self="showBucketHelp = false">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3>建立 Storage Bucket「{{ currentBucketName }}」</h3>
+              <button class="btn-close" @click="showBucketHelp = false">✕</button>
+            </div>
+            <div class="modal-body">
+              <p class="modal-hint">請到 Supabase Dashboard 建立 Storage Bucket：</p>
+              <ol style="padding-left: 1.5rem; line-height: 2; color: var(--text-primary);">
+                <li>進入 Supabase Dashboard → <strong>Storage</strong></li>
+                <li>點擊 <strong>New bucket</strong></li>
+                <li>Name 輸入：<code style="background: var(--bg-tertiary); padding: 0.1rem 0.4rem; border-radius: 3px;">{{ currentBucketName }}</code></li>
+                <li>勾選 <strong>Public bucket</strong>（公開存取）</li>
+                <li>點擊 <strong>Create bucket</strong></li>
+              </ol>
+              <p class="modal-hint" style="margin-top: 1rem;">在 SQL Editor 執行以下指令（建立 Bucket + RLS 政策）：</p>
+              <pre class="sql-code">-- 1. 建立 Bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('{{ currentBucketName }}', '{{ currentBucketName }}', true);
+
+-- 2. 設定存取政策（允許上傳、讀取、更新、刪除）
+CREATE POLICY "Allow public upload" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = '{{ currentBucketName }}');
+CREATE POLICY "Allow public read" ON storage.objects
+  FOR SELECT USING (bucket_id = '{{ currentBucketName }}');
+CREATE POLICY "Allow public update" ON storage.objects
+  FOR UPDATE USING (bucket_id = '{{ currentBucketName }}');
+CREATE POLICY "Allow public delete" ON storage.objects
+  FOR DELETE USING (bucket_id = '{{ currentBucketName }}');</pre>
+            </div>
+            <div class="modal-footer">
+              <button class="btn-secondary" @click="showBucketHelp = false">關閉</button>
+              <button class="btn-primary" @click="copyBucketSql">
+                <span class="icon">📋</span> 複製 SQL
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </PageContainer>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import PageContainer from '../layout/PageContainer.vue'
 import { useSettings } from '../../composables/useSettings'
 
@@ -161,6 +232,7 @@ const {
   friendlyName,
   supabaseUrl,
   supabaseAnonKey,
+  bucket: bucketName,
   loadSettings,
   saveSettings,
   clearSettings,
@@ -179,6 +251,7 @@ const loadAccountToForm = (acc) => {
   friendlyName.value = acc.friendlyName
   supabaseUrl.value = acc.supabaseUrl
   supabaseAnonKey.value = acc.supabaseAnonKey
+  bucketName.value = acc.bucket || ''
 }
 
 // 取消編輯
@@ -187,6 +260,7 @@ const cancelEdit = () => {
   friendlyName.value = ''
   supabaseUrl.value = ''
   supabaseAnonKey.value = ''
+  bucketName.value = ''
 }
 
 // 切換帳號
@@ -212,6 +286,12 @@ const showSqlModal = ref(false)
 const currentTable = ref(null)
 const isChecking = ref(false)
 const connectionStatus = ref('') // 連線狀態訊息
+
+// Bucket 狀態
+const bucketExists = ref(false)
+const bucketChecking = ref(false)
+const showBucketHelp = ref(false)
+const currentBucketName = computed(() => bucketName.value || useRuntimeConfig().public.supabaseBucket || 'uploads')
 
 const tables = reactive([
   {
@@ -427,6 +507,7 @@ const tables = reactive([
   price NUMERIC,
   nextdate DATE,
   note TEXT,
+  renew BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );`
   },
@@ -510,8 +591,31 @@ const checkAllTables = async () => {
       await checkTable(table, url, key)
     }
     
+    // 檢查 Storage Bucket（透過列出檔案來偵測，避免 anon key 無權讀取 buckets 表）
+    bucketChecking.value = true
+    const bkt = bucketName.value || useRuntimeConfig().public.supabaseBucket || 'uploads'
+    try {
+      const bucketRes = await fetch(
+        `${url}/storage/v1/object/list/${bkt}`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': key,
+            'Authorization': `Bearer ${key}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prefix: '', limit: 1 })
+        }
+      )
+      // 200 = bucket 存在且有權限，400 = bucket 不存在
+      bucketExists.value = bucketRes.status === 200
+    } catch {
+      bucketExists.value = false
+    }
+    bucketChecking.value = false
+
     const existCount = tables.filter(t => t.exists).length
-    connectionStatus.value = `✅ 已連線 - ${existCount}/${tables.length} 表格已建立`
+    connectionStatus.value = `✅ 已連線 - ${existCount}/${tables.length} 表格已建立${bucketExists.value ? '，Storage ✅' : '，Storage ❌'}`
   } catch (e) {
     console.error('Connection error:', e)
     connectionStatus.value = `❌ 連線失敗: ${e.message}`
@@ -574,6 +678,35 @@ const copySql = async () => {
   }
 }
 
+const copyBucketSql = async () => {
+  const bkt = currentBucketName.value
+  const sql = `-- 1. 建立 Bucket
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('${bkt}', '${bkt}', true);
+
+-- 2. 設定存取政策
+CREATE POLICY "Allow public upload" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = '${bkt}');
+CREATE POLICY "Allow public read" ON storage.objects
+  FOR SELECT USING (bucket_id = '${bkt}');
+CREATE POLICY "Allow public update" ON storage.objects
+  FOR UPDATE USING (bucket_id = '${bkt}');
+CREATE POLICY "Allow public delete" ON storage.objects
+  FOR DELETE USING (bucket_id = '${bkt}');`
+  try {
+    await navigator.clipboard.writeText(sql)
+    alert('SQL 已複製到剪貼簿！')
+  } catch {
+    const textarea = document.createElement('textarea')
+    textarea.value = sql
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    alert('SQL 已複製到剪貼簿！')
+  }
+}
+
 onMounted(() => {
   loadSettings()
   checkAllTables()
@@ -585,7 +718,8 @@ const handleSave = () => {
     updateAccount(editingAccountId.value, {
       friendlyName: friendlyName.value,
       supabaseUrl: supabaseUrl.value,
-      supabaseAnonKey: supabaseAnonKey.value
+      supabaseAnonKey: supabaseAnonKey.value,
+      bucket: bucketName.value || 'uploads'
     })
     // 切換到該帳號
     switchAccount(editingAccountId.value)
@@ -720,6 +854,15 @@ useHead({
   font-size: 0.8rem;
   color: var(--text-muted);
   font-family: 'Courier New', monospace;
+}
+
+.account-bucket {
+  font-size: 0.75rem;
+  color: var(--primary);
+  background: var(--primary-light, rgba(102, 126, 234, 0.1));
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
 }
 
 .account-card-actions {

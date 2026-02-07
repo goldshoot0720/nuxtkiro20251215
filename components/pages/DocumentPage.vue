@@ -131,12 +131,32 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">檔案</label>
+              <label class="form-label">上傳檔案</label>
+              <div class="upload-area">
+                <input
+                  ref="fileInput"
+                  type="file"
+                  @change="handleFileUpload"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  @click="$refs.fileInput.click()"
+                  class="btn btn-upload"
+                  :disabled="fileUploading"
+                >
+                  {{ fileUploading ? '上傳中...' : '選擇檔案' }}
+                </button>
+              </div>
+              <div v-if="formData.file" class="file-preview">
+                <span>📄 {{ getFileName(formData.file) }}</span>
+                <button type="button" @click="removeFile" class="btn-remove">移除</button>
+              </div>
               <input
                 v-model="formData.file"
                 type="text"
                 class="form-input"
-                placeholder="檔案路徑或 URL"
+                placeholder="或輸入檔案 URL"
               />
             </div>
 
@@ -181,12 +201,33 @@
             </div>
 
             <div class="form-group">
-              <label class="form-label">封面</label>
+              <label class="form-label">封面上傳</label>
+              <div class="upload-area">
+                <input
+                  ref="coverFileInput"
+                  type="file"
+                  accept="image/*"
+                  @change="handleCoverUpload"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  @click="$refs.coverFileInput.click()"
+                  class="btn btn-upload"
+                  :disabled="coverUploading"
+                >
+                  {{ coverUploading ? '上傳中...' : '選擇封面' }}
+                </button>
+              </div>
+              <div v-if="formData.cover" class="cover-upload-preview">
+                <img :src="formData.cover" alt="封面預覽" class="preview-image" />
+                <button type="button" @click="removeCover" class="btn-remove">移除</button>
+              </div>
               <input
                 v-model="formData.cover"
                 type="text"
                 class="form-input"
-                placeholder="封面圖片 URL"
+                placeholder="或輸入封面 URL"
               />
             </div>
 
@@ -210,6 +251,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { useDocuments } from '../../composables/useDocuments'
+import { useStorage } from '../../composables/useStorage'
 
 // SEO
 useHead({
@@ -230,6 +272,13 @@ const {
 
 // Search
 const searchQuery = ref('')
+
+// Upload state
+const fileInput = ref(null)
+const coverFileInput = ref(null)
+const { uploadFile } = useStorage()
+const fileUploading = ref(false)
+const coverUploading = ref(false)
 
 // Modal state
 const showModal = ref(false)
@@ -283,6 +332,66 @@ const openEditModal = (document) => {
 const closeModal = () => {
   showModal.value = false
   resetForm()
+}
+
+// File upload handler
+const handleFileUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  fileUploading.value = true
+  try {
+    const result = await uploadFile(file, 'documents')
+    if (result.success) {
+      formData.value.file = result.url
+      alert('檔案上傳成功！')
+    } else {
+      alert('上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    alert('上傳失敗: ' + error.message)
+  } finally {
+    fileUploading.value = false
+  }
+}
+
+// Remove file
+const removeFile = () => {
+  formData.value.file = ''
+  if (fileInput.value) {
+    fileInput.value.value = ''
+  }
+}
+
+// Cover upload handler
+const handleCoverUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  coverUploading.value = true
+  try {
+    const result = await uploadFile(file, 'document-covers')
+    if (result.success) {
+      formData.value.cover = result.url
+      alert('封面上傳成功！')
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Cover upload error:', error)
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+// Remove cover
+const removeCover = () => {
+  formData.value.cover = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
+  }
 }
 
 const resetForm = () => {
@@ -906,5 +1015,53 @@ onMounted(() => {
   .card-actions {
     align-self: flex-end;
   }
+}
+
+/* Upload Area Styles */
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.btn-upload {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: white;
+}
+
+.file-preview, .cover-upload-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-remove:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 </style>

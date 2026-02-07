@@ -101,8 +101,34 @@
             </div>
 
             <div class="form-group">
+              <label>上傳圖片</label>
+              <div class="upload-area">
+                <input
+                  ref="imageFileInput"
+                  type="file"
+                  accept="image/*"
+                  @change="handleImageUpload"
+                  style="display: none"
+                />
+                <button
+                  type="button"
+                  @click="$refs.imageFileInput.click()"
+                  class="btn-upload"
+                  :disabled="imageUploading"
+                >
+                  {{ imageUploading ? '上傳中...' : '選擇圖片' }}
+                </button>
+                <span v-if="imageUploadProgress > 0" class="upload-progress">{{ imageUploadProgress }}%</span>
+              </div>
+              <div v-if="formData.file" class="image-preview">
+                <img :src="formData.file" alt="預覽" class="preview-image" />
+                <button type="button" @click="removeImage" class="btn-remove">移除</button>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label>檔案路徑</label>
-              <input v-model="formData.file" type="text" class="form-input" placeholder="請輸入檔案路徑或 URL">
+              <input v-model="formData.file" type="text" class="form-input" placeholder="自動上傳或手動輸入 URL">
             </div>
 
             <div class="form-group">
@@ -134,8 +160,29 @@
                   <input v-model="formData.hash" type="text" class="form-input" placeholder="檔案 Hash 值">
                 </div>
                 <div class="form-group">
-                  <label>封面圖片</label>
-                  <input v-model="formData.cover" type="text" class="form-input" placeholder="封面圖片路徑">
+                  <label>封面圖片上傳</label>
+                  <div class="upload-area">
+                    <input
+                      ref="coverFileInput"
+                      type="file"
+                      accept="image/*"
+                      @change="handleCoverUpload"
+                      style="display: none"
+                    />
+                    <button
+                      type="button"
+                      @click="$refs.coverFileInput.click()"
+                      class="btn-upload"
+                      :disabled="coverUploading"
+                    >
+                      {{ coverUploading ? '上傳中...' : '選擇封面' }}
+                    </button>
+                  </div>
+                  <div v-if="formData.cover" class="image-preview">
+                    <img :src="formData.cover" alt="封面預覽" class="preview-image" />
+                    <button type="button" @click="removeCover" class="btn-remove">移除</button>
+                  </div>
+                  <input v-model="formData.cover" type="text" class="form-input" placeholder="或輸入封面 URL">
                 </div>
               </div>
             </div>
@@ -157,6 +204,7 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import PageContainer from '../layout/PageContainer.vue'
 import { useImages } from '../../composables/useImages'
+import { useStorage } from '../../composables/useStorage'
 
 const {
   images,
@@ -176,6 +224,13 @@ const searchQuery = ref('')
 const showSection = reactive({
   extra: false
 })
+
+// 上傳狀態
+const imageFileInput = ref(null)
+const coverFileInput = ref(null)
+const { uploading: imageUploading, uploadProgress: imageUploadProgress, uploadFile: uploadImageFile } = useStorage()
+const coverUploading = ref(false)
+const coverUploadProgress = ref(0)
 
 // 表單資料
 const formData = reactive({
@@ -243,6 +298,68 @@ const resetForm = () => {
 const closeModal = () => {
   showModal.value = false
   resetForm()
+}
+
+// 圖片上傳處理
+const handleImageUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  try {
+    const result = await uploadImageFile(file, 'gallery')
+    if (result.success) {
+      formData.file = result.url
+      // 自動偵測檔案類型
+      const ext = file.name.split('.').pop()
+      if (ext) formData.filetype = ext
+      alert('圖片上傳成功！')
+    } else {
+      alert('上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    alert('上傳失敗: ' + error.message)
+  }
+}
+
+// 移除已上傳圖片
+const removeImage = () => {
+  formData.file = ''
+  formData.filetype = ''
+  if (imageFileInput.value) {
+    imageFileInput.value.value = ''
+  }
+}
+
+// 封面圖片上傳處理
+const handleCoverUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  coverUploading.value = true
+  try {
+    const { uploadFile } = useStorage()
+    const result = await uploadFile(file, 'gallery-covers')
+    if (result.success) {
+      formData.cover = result.url
+      alert('封面上傳成功！')
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Cover upload error:', error)
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+// 移除封面
+const removeCover = () => {
+  formData.cover = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
+  }
 }
 
 // 提交表單
@@ -802,5 +919,76 @@ useHead({
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Upload Area Styles */
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.btn-upload {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-upload:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.btn-upload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.upload-progress {
+  font-size: 0.9rem;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.image-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-remove:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 </style>

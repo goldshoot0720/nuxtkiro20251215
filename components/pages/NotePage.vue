@@ -72,18 +72,25 @@
             <div class="attachment-group" v-if="article.file1 || article.file2 || article.file3">
               <h4>📎 附件檔案</h4>
               <div class="files-list">
-                <div v-if="article.file1" class="file-item">
-                  <span class="file-type">{{ article.file1type || 'FILE' }}</span>
-                  <span class="file-name">{{ article.file1 }}</span>
-                </div>
-                <div v-if="article.file2" class="file-item">
-                  <span class="file-type">{{ article.file2type || 'FILE' }}</span>
-                  <span class="file-name">{{ article.file2 }}</span>
-                </div>
-                <div v-if="article.file3" class="file-item">
-                  <span class="file-type">{{ article.file3type || 'FILE' }}</span>
-                  <span class="file-name">{{ article.file3 }}</span>
-                </div>
+                <template v-for="n in 3" :key="'file' + n">
+                  <div v-if="article['file' + n]" class="file-item-card">
+                    <!-- 圖片預覽 -->
+                    <img
+                      v-if="isImageType(article['file' + n + 'type'])"
+                      :src="article['file' + n]"
+                      :alt="article['file' + n + 'name'] || '附件'"
+                      class="file-preview-img"
+                      @click="openPreview(article['file' + n])"
+                    />
+                    <!-- 非圖片檔案 -->
+                    <div v-else class="file-icon-box">📄</div>
+                    <div class="file-detail">
+                      <span class="file-name">{{ article['file' + n + 'name'] || '附件 ' + n }}</span>
+                      <span class="file-type">{{ article['file' + n + 'type'] || 'FILE' }}</span>
+                    </div>
+                    <a :href="article['file' + n]" target="_blank" class="btn-download" title="開啟/下載">⬇️</a>
+                  </div>
+                </template>
               </div>
             </div>
           </div>
@@ -129,20 +136,44 @@
 
             <div class="form-section">
               <h4 @click="toggleSection('files')" class="section-toggle">
-                📎 附件設定 {{ showSection.files ? '▼' : '▶' }}
+                📎 附件設定 (最多 3 個) {{ showSection.files ? '▼' : '▶' }}
               </h4>
               <div v-if="showSection.files" class="section-content">
-                <div class="file-input-group mb-3">
-                  <input v-model="formData.file1" type="text" class="form-input" placeholder="檔案 1 名稱/路徑">
-                  <input v-model="formData.file1type" type="text" class="form-input small" placeholder="類型">
-                </div>
-                <div class="file-input-group mb-3">
-                  <input v-model="formData.file2" type="text" class="form-input" placeholder="檔案 2 名稱/路徑">
-                  <input v-model="formData.file2type" type="text" class="form-input small" placeholder="類型">
-                </div>
-                <div class="file-input-group">
-                  <input v-model="formData.file3" type="text" class="form-input" placeholder="檔案 3 名稱/路徑">
-                  <input v-model="formData.file3type" type="text" class="form-input small" placeholder="類型">
+                <div v-for="n in 3" :key="n" class="attachment-upload-item" :class="{ 'mb-3': n < 3 }">
+                  <label class="attachment-label">附件 {{ n }}</label>
+                  <!-- 已上傳預覽 -->
+                  <div v-if="formData['file' + n]" class="attachment-preview">
+                    <div class="attachment-preview-content">
+                      <img
+                        v-if="isImageType(formData['file' + n + 'type'])"
+                        :src="formData['file' + n]"
+                        alt="附件預覽"
+                        class="attachment-thumb"
+                      />
+                      <div v-else class="attachment-file-icon">📄</div>
+                      <div class="attachment-info">
+                        <span class="attachment-name">{{ formData['file' + n + 'name'] || '已上傳' }}</span>
+                        <span class="attachment-type-badge">{{ formData['file' + n + 'type'] || 'FILE' }}</span>
+                      </div>
+                    </div>
+                    <button type="button" class="btn-remove-attachment" @click="removeAttachment(n)">✕</button>
+                  </div>
+                  <!-- 上傳區域 -->
+                  <div v-else class="attachment-drop-zone" @click="triggerFileInput(n)" @dragover.prevent @drop.prevent="handleFileDrop($event, n)">
+                    <span class="drop-icon">📎</span>
+                    <span class="drop-text">點擊或拖曳上傳</span>
+                  </div>
+                  <input
+                    :ref="el => { if (el) fileInputRefs[n] = el }"
+                    type="file"
+                    style="display:none"
+                    @change="handleFileUpload($event, n)"
+                  >
+                  <!-- 上傳進度 -->
+                  <div v-if="uploadingSlot === n" class="attachment-progress">
+                    <div class="progress-bar"><div class="progress-fill" :style="{ width: uploadProgress + '%' }"></div></div>
+                    <span class="progress-text">上傳中...</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -156,6 +187,13 @@
           </div>
         </div>
       </div>
+      <!-- 圖片預覽 Lightbox -->
+      <div v-if="previewUrl" class="lightbox-overlay" @click="previewUrl = null">
+        <div class="lightbox-content" @click.stop>
+          <button class="lightbox-close" @click="previewUrl = null">✕</button>
+          <img :src="previewUrl" alt="預覽" class="lightbox-img" />
+        </div>
+      </div>
     </div>
   </PageContainer>
 </template>
@@ -164,22 +202,28 @@
 import { ref, onMounted, reactive, computed } from 'vue'
 import PageContainer from '../layout/PageContainer.vue'
 import { useArticles } from '../../composables/useArticles'
+import { useStorage } from '../../composables/useStorage'
 
-const { 
-  articles, 
-  loading, 
-  loadArticles, 
-  addArticle, 
-  updateArticle, 
+const {
+  articles,
+  loading,
+  loadArticles,
+  addArticle,
+  updateArticle,
   deleteArticle,
   importArticles,
   isAppwriteFormat
 } = useArticles()
 
+const { uploading, uploadProgress, uploadFile } = useStorage()
+
 // 狀態
 const showModal = ref(false)
 const isEditing = ref(false)
 const searchQuery = ref('')
+const uploadingSlot = ref(null)
+const previewUrl = ref(null)
+const fileInputRefs = {}
 const showSection = reactive({
   urls: false,
   files: false
@@ -195,10 +239,13 @@ const formData = reactive({
   url2: '',
   url3: '',
   file1: '',
+  file1name: '',
   file1type: '',
   file2: '',
+  file2name: '',
   file2type: '',
   file3: '',
+  file3name: '',
   file3type: ''
 })
 
@@ -463,6 +510,69 @@ const handleImportCsv = async (e) => {
   e.target.value = ''
 }
 
+// 判斷是否為圖片類型
+const isImageType = (type) => {
+  if (!type) return false
+  const t = type.toLowerCase()
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(t)
+}
+
+// 取得檔案副檔名
+const getFileExt = (filename) => {
+  if (!filename) return ''
+  return filename.split('.').pop().toLowerCase()
+}
+
+// 觸發檔案選擇
+const triggerFileInput = (slot) => {
+  fileInputRefs[slot]?.click()
+}
+
+// 上傳檔案
+const handleFileUpload = async (e, slot) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  uploadingSlot.value = slot
+  const result = await uploadFile(file, 'article')
+  if (result.success) {
+    formData['file' + slot] = result.url
+    formData['file' + slot + 'name'] = file.name
+    formData['file' + slot + 'type'] = getFileExt(file.name)
+  } else {
+    alert('上傳失敗: ' + result.error)
+  }
+  uploadingSlot.value = null
+  e.target.value = ''
+}
+
+// 拖曳上傳
+const handleFileDrop = async (e, slot) => {
+  const file = e.dataTransfer.files?.[0]
+  if (!file) return
+  uploadingSlot.value = slot
+  const result = await uploadFile(file, 'article')
+  if (result.success) {
+    formData['file' + slot] = result.url
+    formData['file' + slot + 'name'] = file.name
+    formData['file' + slot + 'type'] = getFileExt(file.name)
+  } else {
+    alert('上傳失敗: ' + result.error)
+  }
+  uploadingSlot.value = null
+}
+
+// 移除附件
+const removeAttachment = (slot) => {
+  formData['file' + slot] = ''
+  formData['file' + slot + 'name'] = ''
+  formData['file' + slot + 'type'] = ''
+}
+
+// 開啟大圖預覽
+const openPreview = (url) => {
+  previewUrl.value = url
+}
+
 // SEO
 useHead({
   title: '鋒兄筆記 - 鋒兄AI Supabase',
@@ -692,13 +802,49 @@ useHead({
   text-decoration: underline;
 }
 
-.file-item {
+/* 附件卡片（列表顯示） */
+.file-item-card {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.75rem;
   background: #f9f9f9;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.file-preview-img {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+
+.file-preview-img:hover {
+  transform: scale(1.1);
+}
+
+.file-icon-box {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: #e5e7eb;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.file-detail {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
 }
 
 .file-type {
@@ -708,13 +854,217 @@ useHead({
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   text-transform: uppercase;
+  width: fit-content;
 }
 
 .file-name {
   color: #555;
+  font-size: 0.85rem;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.btn-download {
+  text-decoration: none;
+  font-size: 1.1rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-download:hover {
+  opacity: 1;
+}
+
+/* 上傳區域（Modal 表單內） */
+.attachment-upload-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem;
+  background: #fafafa;
+}
+
+.attachment-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 0.5rem;
+}
+
+.attachment-drop-zone {
+  border: 2px dashed #ccc;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.attachment-drop-zone:hover {
+  border-color: #a8edea;
+  background: #f0faf9;
+}
+
+.drop-icon { font-size: 1.2rem; }
+.drop-text { font-size: 0.9rem; color: #888; }
+
+.attachment-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.attachment-preview-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.attachment-thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.attachment-file-icon {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: #e5e7eb;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.attachment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.attachment-name {
+  font-size: 0.85rem;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-type-badge {
+  font-size: 0.7rem;
+  background: #a8edea;
+  color: #444;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  text-transform: uppercase;
+  width: fit-content;
+}
+
+.btn-remove-attachment {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: #ef4444;
+  color: white;
+  font-size: 0.75rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.btn-remove-attachment:hover {
+  background: #dc2626;
+}
+
+.attachment-progress {
+  margin-top: 0.5rem;
+}
+
+.progress-bar {
+  height: 5px;
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #a8edea, #6ee7b7);
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+.progress-text {
+  font-size: 0.75rem;
+  color: #10b981;
+  margin-top: 0.2rem;
+  display: block;
+}
+
+/* Lightbox 預覽 */
+.lightbox-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 2rem;
+}
+
+.lightbox-content {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: white;
+  color: #333;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  z-index: 1;
+}
+
+.lightbox-close:hover {
+  background: #f0f0f0;
+}
+
+.lightbox-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
 }
 
 /* Modal & Form Styles */

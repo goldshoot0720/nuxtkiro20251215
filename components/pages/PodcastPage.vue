@@ -126,13 +126,38 @@
               </div>
 
               <div class="form-group">
+                <label>上傳音檔</label>
+                <div class="upload-area">
+                  <input
+                    ref="audioFileInput"
+                    type="file"
+                    accept="audio/*"
+                    @change="handleAudioUpload"
+                    style="display: none"
+                  />
+                  <button
+                    type="button"
+                    @click="$refs.audioFileInput.click()"
+                    class="btn btn-upload"
+                    :disabled="audioUploading"
+                  >
+                    {{ audioUploading ? '上傳中...' : '選擇音檔' }}
+                  </button>
+                </div>
+                <div v-if="formData.file" class="audio-preview">
+                  <audio :src="formData.file" controls class="preview-audio"></audio>
+                  <button type="button" @click="removeAudio" class="btn-remove">移除</button>
+                </div>
+              </div>
+
+              <div class="form-group">
                 <label for="file">檔案路徑</label>
                 <input
                   id="file"
                   v-model="formData.file"
                   type="text"
                   class="form-input"
-                  placeholder="輸入檔案路徑或 URL"
+                  placeholder="自動上傳或手動輸入 URL"
                 />
               </div>
 
@@ -159,13 +184,34 @@
               </div>
 
               <div class="form-group">
-                <label for="cover">封面圖片 URL</label>
+                <label>封面上傳</label>
+                <div class="upload-area">
+                  <input
+                    ref="coverFileInput"
+                    type="file"
+                    accept="image/*"
+                    @change="handleCoverUpload"
+                    style="display: none"
+                  />
+                  <button
+                    type="button"
+                    @click="$refs.coverFileInput.click()"
+                    class="btn btn-upload"
+                    :disabled="coverUploading"
+                  >
+                    {{ coverUploading ? '上傳中...' : '選擇封面' }}
+                  </button>
+                </div>
+                <div v-if="formData.cover" class="cover-upload-preview">
+                  <img :src="formData.cover" alt="封面預覽" class="preview-image" />
+                  <button type="button" @click="removeCover" class="btn-remove">移除</button>
+                </div>
                 <input
                   id="cover"
                   v-model="formData.cover"
                   type="text"
                   class="form-input"
-                  placeholder="輸入封面圖片 URL"
+                  placeholder="或輸入封面 URL"
                 />
               </div>
 
@@ -223,6 +269,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { usePodcasts } from '../../composables/usePodcasts'
+import { useStorage } from '../../composables/useStorage'
 
 // Set page title
 useHead({
@@ -237,6 +284,13 @@ const searchQuery = ref('')
 const showModal = ref(false)
 const isEditMode = ref(false)
 const currentPodcast = ref(null)
+
+// Upload state
+const audioFileInput = ref(null)
+const coverFileInput = ref(null)
+const { uploadFile } = useStorage()
+const audioUploading = ref(false)
+const coverUploading = ref(false)
 const formData = ref({
   name: '',
   file: '',
@@ -303,6 +357,69 @@ const closeModal = () => {
     category: '',
     hash: '',
     cover: ''
+  }
+}
+
+// Audio upload handler
+const handleAudioUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  audioUploading.value = true
+  try {
+    const result = await uploadFile(file, 'podcast')
+    if (result.success) {
+      formData.value.file = result.url
+      const ext = file.name.split('.').pop()
+      if (ext) formData.value.filetype = ext
+      alert('音檔上傳成功！')
+    } else {
+      alert('上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Upload error:', error)
+    alert('上傳失敗: ' + error.message)
+  } finally {
+    audioUploading.value = false
+  }
+}
+
+// Remove audio
+const removeAudio = () => {
+  formData.value.file = ''
+  formData.value.filetype = ''
+  if (audioFileInput.value) {
+    audioFileInput.value.value = ''
+  }
+}
+
+// Cover upload handler
+const handleCoverUpload = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  coverUploading.value = true
+  try {
+    const result = await uploadFile(file, 'podcast-covers')
+    if (result.success) {
+      formData.value.cover = result.url
+      alert('封面上傳成功！')
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('Cover upload error:', error)
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    coverUploading.value = false
+  }
+}
+
+// Remove cover
+const removeCover = () => {
+  formData.value.cover = ''
+  if (coverFileInput.value) {
+    coverFileInput.value.value = ''
   }
 }
 
@@ -832,5 +949,68 @@ onMounted(() => {
     width: 95%;
     max-height: 95vh;
   }
+}
+
+/* Upload Area Styles */
+.upload-area {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.btn-upload {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+}
+
+.audio-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.preview-audio {
+  max-width: 250px;
+  height: 40px;
+}
+
+.cover-upload-preview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin: 0.75rem 0;
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+.preview-image {
+  max-width: 150px;
+  max-height: 100px;
+  border-radius: 6px;
+  object-fit: cover;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-remove {
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.btn-remove:hover {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
 </style>

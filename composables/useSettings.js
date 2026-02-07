@@ -12,6 +12,7 @@ let _isLoaded = false // 是否已載入
 const tempFriendlyName = ref('')
 const tempSupabaseUrl = ref('')
 const tempSupabaseAnonKey = ref('')
+const tempBucket = ref('')
 
 // 當前啟用的帳號
 const activeAccount = computed(() => {
@@ -49,6 +50,16 @@ const supabaseAnonKey = computed({
     }
   }
 })
+const bucket = computed({
+  get: () => activeAccount.value?.bucket ?? tempBucket.value,
+  set: (val) => {
+    if (activeAccount.value) {
+      activeAccount.value.bucket = val
+    } else {
+      tempBucket.value = val
+    }
+  }
+})
 
 /**
  * 獲取 Supabase 認證資訊（優先使用 localStorage 帳號，否則使用 .env）
@@ -82,6 +93,26 @@ export function getSupabaseCredentials() {
 
   // 否則返回 null，讓調用者使用 .env
   return null
+}
+
+/**
+ * 獲取 Storage Bucket 名稱（優先 localStorage 帳號 → .env → 預設 'uploads'）
+ */
+export function getSupabaseBucket() {
+  if (!_isLoaded && typeof localStorage !== 'undefined') {
+    try {
+      const accountsRaw = localStorage.getItem(ACCOUNTS_KEY)
+      if (accountsRaw) {
+        const data = JSON.parse(accountsRaw)
+        accounts.value = data.accounts || []
+        activeAccountId.value = data.activeId || (accounts.value[0]?.id || null)
+      }
+      _isLoaded = true
+    } catch (e) { /* ignore */ }
+  }
+  const acc = accounts.value.find(a => a.id === activeAccountId.value)
+  if (acc?.bucket) return acc.bucket
+  return null // 讓調用者 fallback 到 .env
 }
 
 export function useSettings() {
@@ -147,7 +178,8 @@ export function useSettings() {
       id: generateId(),
       friendlyName: account.friendlyName || '',
       supabaseUrl: account.supabaseUrl || '',
-      supabaseAnonKey: account.supabaseAnonKey || ''
+      supabaseAnonKey: account.supabaseAnonKey || '',
+      bucket: account.bucket || ''
     }
     accounts.value.push(newAccount)
     // 如果是第一個帳號，自動設為啟用
@@ -208,10 +240,12 @@ export function useSettings() {
     const key = tempSupabaseAnonKey.value.trim()
     
     if (name || url || key) {
+      const bkt = tempBucket.value.trim()
       const newAccount = addAccount({
         friendlyName: name,
         supabaseUrl: url,
-        supabaseAnonKey: key
+        supabaseAnonKey: key,
+        bucket: bkt
       })
       // 設為當前啟用帳號
       activeAccountId.value = newAccount.id
@@ -219,6 +253,7 @@ export function useSettings() {
       tempFriendlyName.value = ''
       tempSupabaseUrl.value = ''
       tempSupabaseAnonKey.value = ''
+      tempBucket.value = ''
       return saveAccounts()
     }
     
@@ -232,6 +267,7 @@ export function useSettings() {
     tempFriendlyName.value = ''
     tempSupabaseUrl.value = ''
     tempSupabaseAnonKey.value = ''
+    tempBucket.value = ''
     localStorage.removeItem(ACCOUNTS_KEY)
     localStorage.removeItem(STORAGE_KEY)
   }
@@ -256,6 +292,7 @@ export function useSettings() {
     friendlyName,
     supabaseUrl,
     supabaseAnonKey,
+    bucket,
     displayName,
     loadSettings,
     saveSettings,

@@ -73,6 +73,7 @@ export default defineNuxtConfig({
     public: {
       supabaseUrl: process.env.SUPABASE_URL,
       supabaseAnonKey: process.env.SUPABASE_ANON_KEY,
+      supabaseBucket: process.env.SUPABASE_BUCKET || 'uploads',
       NETLIFY_SITE_ID: process.env.NETLIFY_SITE_ID
     }
   }
