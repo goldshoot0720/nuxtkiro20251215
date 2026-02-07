@@ -59,9 +59,8 @@
               <span class="detail-label">備註:</span>
               <p class="detail-value">{{ image.note }}</p>
             </div>
-            <div v-if="image.file" class="detail-row">
-              <span class="detail-label">檔案:</span>
-              <p class="detail-value file-path">{{ image.file }}</p>
+            <div v-if="image.file" class="card-image-wrapper">
+              <img :src="image.file" :alt="image.name || '圖片'" class="card-image" />
             </div>
             <div v-if="image.filetype" class="detail-row">
               <span class="file-type-badge">{{ image.filetype }}</span>
@@ -309,6 +308,10 @@ const handleImageUpload = async (event) => {
     const result = await uploadImageFile(file, 'gallery')
     if (result.success) {
       formData.file = result.url
+      // 名稱預設為上傳檔案名稱（去除副檔名）
+      if (!formData.name) {
+        formData.name = file.name.replace(/\.[^.]+$/, '')
+      }
       // 自動偵測檔案類型
       const ext = file.name.split('.').pop()
       if (ext) formData.filetype = ext
@@ -671,12 +674,24 @@ useHead({
   word-break: break-all;
 }
 
-.file-path {
-  font-family: monospace;
-  font-size: 0.85rem;
-  background: #f5f5f5;
-  padding: 0.4rem 0.6rem;
-  border-radius: 4px;
+.card-image-wrapper {
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-image {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.card-image:hover {
+  transform: scale(1.02);
 }
 
 .file-type-badge {

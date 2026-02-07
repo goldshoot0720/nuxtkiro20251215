@@ -55,6 +55,7 @@ export const useStorage = () => {
       const timestamp = Date.now()
       const filePath = customPath || `${folder}/${timestamp}_${file.name}`
 
+      console.log('[useStorage] bucket =', getBucket())
       // Upload file
       const { data, error } = await client.storage
         .from(getBucket())
