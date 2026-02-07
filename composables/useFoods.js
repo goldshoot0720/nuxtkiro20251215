@@ -107,7 +107,7 @@ export const useFoods = () => {
   const addFood = async () => {
     const client = initSupabase()
     if (!client) return
-    
+
     // 驗證日期格式
     if (newFood.value.todate) {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -116,10 +116,10 @@ export const useFoods = () => {
         return
       }
     }
-    
+
     try {
       foodLoading.value = true
-      
+
       const { data, error } = await client
         .from('food')
         .insert({
@@ -133,9 +133,9 @@ export const useFoods = () => {
         })
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       foods.value.unshift(data)
       resetFoodForm()
       alert('食物新增成功！')
@@ -144,6 +144,40 @@ export const useFoods = () => {
       alert('新增食物失敗: ' + error.message)
     } finally {
       foodLoading.value = false
+    }
+  }
+
+  // 行内新增食物
+  const addFoodInline = async (formData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+
+    if (!formData.name) {
+      return { success: false, error: '請輸入食物名稱' }
+    }
+
+    try {
+      const { data, error } = await client
+        .from('food')
+        .insert({
+          name: formData.name,
+          amount: formData.amount || null,
+          price: formData.price || null,
+          shop: formData.shop || null,
+          todate: formData.todate || null,
+          photo: formData.photo || null,
+          photohash: formData.photohash || null
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      foods.value.unshift(data)
+      return { success: true }
+    } catch (error) {
+      console.error('行内新增失敗:', error.message)
+      return { success: false, error: error.message }
     }
   }
 
@@ -170,7 +204,7 @@ export const useFoods = () => {
   const updateFood = async () => {
     const client = initSupabase()
     if (!editingFood.value || !client) return
-    
+
     // 驗證日期格式
     if (newFood.value.todate) {
       const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -179,10 +213,10 @@ export const useFoods = () => {
         return
       }
     }
-    
+
     try {
       foodLoading.value = true
-      
+
       const { data, error } = await client
         .from('food')
         .update({
@@ -197,15 +231,15 @@ export const useFoods = () => {
         .eq('id', editingFood.value.id)
         .select()
         .single()
-      
+
       if (error) throw error
-      
+
       // 更新本地資料
       const index = foods.value.findIndex(f => f.id === editingFood.value.id)
       if (index !== -1) {
         foods.value[index] = data
       }
-      
+
       resetFoodForm()
       alert('食物更新成功！')
     } catch (error) {
@@ -216,28 +250,88 @@ export const useFoods = () => {
     }
   }
 
+  // 行内更新食物
+  const updateFoodInline = async (id, formData) => {
+    const client = initSupabase()
+    if (!client) return { success: false, error: '無法連接資料庫' }
+
+    try {
+      const { data, error } = await client
+        .from('food')
+        .update({
+          name: formData.name,
+          amount: formData.amount || null,
+          price: formData.price || null,
+          shop: formData.shop || null,
+          todate: formData.todate || null,
+          photo: formData.photo || null,
+          photohash: formData.photohash || null
+        })
+        .eq('id', id)
+        .select()
+        .single()
+
+      if (error) throw error
+
+      const index = foods.value.findIndex(f => f.id === id)
+      if (index !== -1) {
+        foods.value[index] = data
+      }
+
+      return { success: true }
+    } catch (error) {
+      console.error('行内更新失敗:', error.message)
+      return { success: false, error: error.message }
+    }
+  }
+
   // 刪除食物
   const deleteFood = async (id) => {
     const client = initSupabase()
     if (!client) return
-    
+
     if (!confirm('確定要刪除此食物項目嗎？')) return
-    
+
     try {
       foodLoading.value = true
-      
+
       const { error } = await client
         .from('food')
         .delete()
         .eq('id', id)
-      
+
       if (error) throw error
-      
+
       foods.value = foods.value.filter(f => f.id !== id)
       alert('食物已刪除！')
     } catch (error) {
       console.error('刪除食物失敗:', error.message)
       alert('刪除食物失敗: ' + error.message)
+    } finally {
+      foodLoading.value = false
+    }
+  }
+
+  // 批量刪除食物
+  const batchDeleteFoods = async (ids) => {
+    const client = initSupabase()
+    if (!client || ids.length === 0) return { success: false, error: '無效操作' }
+
+    try {
+      foodLoading.value = true
+
+      const { error } = await client
+        .from('food')
+        .delete()
+        .in('id', ids)
+
+      if (error) throw error
+
+      foods.value = foods.value.filter(f => !ids.includes(f.id))
+      return { success: true, count: ids.length }
+    } catch (error) {
+      console.error('批量刪除失敗:', error.message)
+      return { success: false, error: error.message }
     } finally {
       foodLoading.value = false
     }
@@ -353,11 +447,14 @@ export const useFoods = () => {
     sortedFoods,
     loadFoods,
     addFood,
+    addFoodInline,
     importFoods,
     isAppwriteFormat,
     editFood,
     updateFood,
+    updateFoodInline,
     deleteFood,
+    batchDeleteFoods,
     resetFoodForm
   }
 }
