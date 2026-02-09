@@ -303,7 +303,7 @@ const tables = reactive([
     sql: `CREATE TABLE article (
   id BIGSERIAL PRIMARY KEY,
   title VARCHAR(100) NOT NULL,
-  content VARCHAR(1000),
+  content TEXT,
   category VARCHAR(100),
   ref VARCHAR(100),
   newdate TIMESTAMPTZ,
