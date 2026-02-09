@@ -55,10 +55,15 @@ export const useStorage = () => {
       const timestamp = Date.now()
       const filePath = customPath || `${folder}/${timestamp}_${file.name}`
 
-      console.log('[useStorage] bucket =', getBucket())
+      const bucketName = getBucket()
+      console.log('[useStorage] bucket =', bucketName)
+      const probe = await client.storage.from(bucketName).list('')
+      if (probe.error) {
+        throw new Error(`Bucket "${bucketName}" not found`)
+      }
       // Upload file
       const { data, error } = await client.storage
-        .from(getBucket())
+        .from(bucketName)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
@@ -68,7 +73,7 @@ export const useStorage = () => {
 
       // Get public URL
       const { data: urlData } = client.storage
-        .from(getBucket())
+        .from(bucketName)
         .getPublicUrl(filePath)
 
       uploadProgress.value = 100
@@ -79,8 +84,12 @@ export const useStorage = () => {
         path: filePath
       }
     } catch (e) {
+      const bucketName = getBucket()
+      const msg = e?.message?.includes('Bucket')
+        ? `Bucket "${bucketName}" not found。請在 Supabase 建立此 bucket，或到設定頁設定正確的 SUPABASE_BUCKET。`
+        : e.message
       console.error('Upload error:', e)
-      return { success: false, error: e.message }
+      return { success: false, error: msg }
     } finally {
       uploading.value = false
       uploadProgress.value = 0
