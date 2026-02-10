@@ -56,15 +56,18 @@
               <span v-if="music.category" class="badge badge-category">{{ music.category }}</span>
               <span v-if="music.language" class="badge badge-language">{{ music.language }}</span>
             </div>
-            <p v-if="music.file" class="card-field">
-              <strong>檔案:</strong> {{ music.file }}
-            </p>
-            <p v-if="music.filetype" class="card-field">
-              <strong>格式:</strong> {{ music.filetype }}
-            </p>
-            <p v-if="music.lyrics" class="card-field">
-              <strong>歌詞:</strong> {{ truncate(music.lyrics, 100) }}
-            </p>
+            <div v-if="music.file || music.cover" class="card-media">
+              <div v-if="music.cover" class="card-cover">
+                <img :src="music.cover" :alt="music.name || '封面'" class="card-cover-image" />
+              </div>
+              <div v-if="music.file" class="card-audio">
+                <audio controls :src="music.file" class="audio-player" @play="pauseOthers($event)"></audio>
+              </div>
+            </div>
+            <div v-if="music.lyrics" class="card-field">
+              <strong>歌詞:</strong>
+              <pre class="lyrics-text">{{ music.lyrics }}</pre>
+            </div>
             <p v-if="music.note" class="card-field">
               <strong>備註:</strong> {{ truncate(music.note, 80) }}
             </p>
@@ -73,9 +76,6 @@
             </p>
             <p v-if="music.hash" class="card-field">
               <strong>Hash:</strong> {{ music.hash }}
-            </p>
-            <p v-if="music.cover" class="card-field">
-              <strong>封面:</strong> {{ music.cover }}
             </p>
           </div>
         </div>
@@ -243,6 +243,12 @@ const filteredMusics = computed(() => {
   )
 })
 
+const pauseOthers = (event) => {
+  document.querySelectorAll('.audio-player').forEach(audio => {
+    if (audio !== event.target) audio.pause()
+  })
+}
+
 const truncate = (text, length) => {
   if (!text) return ''
   return text.length > length ? text.substring(0, length) + '...' : text
@@ -312,6 +318,10 @@ const handleAudioUpload = async (event) => {
 
     if (result.success) {
       formData.value.file = result.url
+      // 若名稱為空，預設為上傳檔名（去掉副檔名）
+      if (!formData.value.name) {
+        formData.value.name = file.name.replace(/\.[^.]+$/, '')
+      }
       alert('檔案上傳成功！')
     } else {
       alert('上傳失敗: ' + result.error)
@@ -877,6 +887,46 @@ onMounted(() => {
   .btn-save {
     width: 100%;
   }
+}
+
+/* Media Row: Cover + Audio Player */
+.card-media {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.5rem 0;
+}
+
+.card-cover-image {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
+}
+
+.card-audio {
+  flex: 1;
+  min-width: 0;
+}
+
+.audio-player {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+}
+
+.lyrics-text {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.9rem;
+  line-height: 1.8;
+  color: #555;
+  background: #f8f9fa;
+  padding: 0.75rem;
+  border-radius: 8px;
 }
 
 /* Cover Upload Styles */

@@ -53,15 +53,12 @@ export const useStorage = () => {
 
       // Generate unique file path: folder/timestamp_filename
       const timestamp = Date.now()
-      // Sanitize filename: keep letters (incl. CJK), digits, dash, underscore, dot
-      // Remove emoji, spaces, and full-width punctuation that Supabase rejects
+      // Sanitize filename: only keep ASCII letters, digits, dash, underscore, dot
+      // Supabase Storage rejects non-ASCII characters (CJK, emoji, etc.)
       const safeName = file.name
-        .replace(/\s/g, '_')                                          // spaces → _
-        .replace(/[\u{1F000}-\u{1FFFF}|\u{2600}-\u{27BF}|\u{FE00}-\u{FE0F}|\u{200D}]/gu, '')  // emoji
-        .replace(/[！？＃＄％＆＊＋＝＠＾｀｜～（）【】「」《》''""；：，。、]/g, '_')  // full-width punctuation
-        .replace(/[^\w.\-\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g, '_')  // other unsafe chars
-        .replace(/_{2,}/g, '_')                                       // collapse __
-        .replace(/^_|_$/g, '')                                        // trim _
+        .replace(/[^a-zA-Z0-9._\-]/g, '_')   // non-ASCII-safe → _
+        .replace(/_{2,}/g, '_')               // collapse __
+        .replace(/^_|_$/g, '')                // trim leading/trailing _
         || 'file'
       const filePath = customPath || `${folder}/${timestamp}_${safeName}`
 
