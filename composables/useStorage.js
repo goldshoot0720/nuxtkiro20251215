@@ -53,7 +53,17 @@ export const useStorage = () => {
 
       // Generate unique file path: folder/timestamp_filename
       const timestamp = Date.now()
-      const filePath = customPath || `${folder}/${timestamp}_${file.name}`
+      // Sanitize filename: keep letters (incl. CJK), digits, dash, underscore, dot
+      // Remove emoji, spaces, and full-width punctuation that Supabase rejects
+      const safeName = file.name
+        .replace(/\s/g, '_')                                          // spaces → _
+        .replace(/[\u{1F000}-\u{1FFFF}|\u{2600}-\u{27BF}|\u{FE00}-\u{FE0F}|\u{200D}]/gu, '')  // emoji
+        .replace(/[！？＃＄％＆＊＋＝＠＾｀｜～（）【】「」《》''""；：，。、]/g, '_')  // full-width punctuation
+        .replace(/[^\w.\-\u4e00-\u9fff\u3400-\u4dbf\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/g, '_')  // other unsafe chars
+        .replace(/_{2,}/g, '_')                                       // collapse __
+        .replace(/^_|_$/g, '')                                        // trim _
+        || 'file'
+      const filePath = customPath || `${folder}/${timestamp}_${safeName}`
 
       const bucketName = getBucket()
       console.log('[useStorage] bucket =', bucketName)
