@@ -149,13 +149,43 @@
                 </div>
               </div>
               
-              <button class="btn-view-all" @click="editAccount(account)">
+              <button class="btn-view-all" @click="viewAccount(account)">
                 查看全部詳細
               </button>
             </div>
           </template>
         </div>
       </div>
+
+      <!-- 查看詳細 Modal -->
+      <div v-if="viewingAccount" class="modal-overlay" @click.self="viewingAccount = null">
+        <div class="modal-content large-modal">
+          <div class="modal-header">
+            <div>
+              <h3>{{ getFriendlyName(viewingAccount.name) }}</h3>
+              <span v-if="viewingAccount.name && viewingAccount.name.includes('@')" class="modal-email">{{ viewingAccount.name }}</span>
+            </div>
+            <button class="btn-close" @click="viewingAccount = null">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="detail-list">
+              <div v-for="item in getAllItems(viewingAccount)" :key="item.index" class="detail-item">
+                <span class="detail-num">{{ item.index }}</span>
+                <span class="detail-site">{{ item.site }}</span>
+                <span class="detail-note" v-if="item.note">{{ item.note }}</span>
+              </div>
+              <div v-if="getAllItems(viewingAccount).length === 0" class="no-items" style="padding:2rem;text-align:center">
+                (無內容)
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-cancel" @click="viewingAccount = null">關閉</button>
+            <button class="btn-submit" @click="startInlineEdit(viewingAccount); viewingAccount = null">✏️ 編輯</button>
+          </div>
+        </div>
+      </div>
+
 
       <!-- 編輯/新增 Modal -->
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
@@ -249,6 +279,7 @@ const selectedIds = ref(new Set())
 const editingId = ref(null)
 const editForm = reactive({})
 const showAllSlots = ref(false)
+const viewingAccount = ref(null)
 
 const enterBatchMode = () => { batchMode.value = true }
 const exitBatchMode = () => { batchMode.value = false; selectedIds.value = new Set() }
@@ -305,6 +336,25 @@ const startInlineEdit = (account) => {
 const cancelInlineEdit = () => {
   editingId.value = null
   showAllSlots.value = false
+}
+
+// 查看詳細（唯讀）
+const viewAccount = (account) => {
+  viewingAccount.value = account
+}
+
+// 取得所有非空項目
+const getAllItems = (account) => {
+  const items = []
+  for (let i = 1; i <= 37; i++) {
+    const key = padIndex(i)
+    const site = account[`site${key}`]
+    const note = account[`note${key}`]
+    if (site || note) {
+      items.push({ index: i, site: site || '', note: note || '' })
+    }
+  }
+  return items
 }
 
 const saveInlineEdit = async () => {
@@ -900,6 +950,49 @@ useHead({
   display: block;
   margin-top: 0.2rem;
   word-break: break-all;
+}
+
+.modal-email {
+  font-size: 0.85rem;
+  color: #999;
+  display: block;
+  margin-top: 0.2rem;
+}
+
+/* 查看詳細樣式 */
+.detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.detail-num {
+  font-size: 0.75rem;
+  color: #999;
+  width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.detail-site {
+  font-weight: 600;
+  color: #333;
+  min-width: 80px;
+}
+
+.detail-note {
+  color: #666;
+  flex: 1;
+  word-break: break-word;
 }
 
 .card-actions {
