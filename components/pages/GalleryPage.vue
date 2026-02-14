@@ -470,43 +470,110 @@ const exportImagesZip = async () => {
 
 const zipFileInput = ref(null)
 
-// ZIP Import
+// ZIP Import — 相容 supabase-images.zip (images.json) 及 appwrite-image.zip (image.csv + images/)
 const handleImportZip = async (e) => {
   const file = e.target.files?.[0]
   if (!file) return
 
   try {
-    // Dynamically import JSZip
     const JSZip = (await import('jszip')).default
-
     const zip = await JSZip.loadAsync(file)
 
-    // Look for JSON file
+    // 偵測格式：Appwrite (image.csv) vs Supabase (images.json)
+    const csvFile = zip.file('image.csv')
     const jsonFile = zip.file('images.json')
-    if (!jsonFile) {
-      alert('ZIP 檔案中找不到 images.json')
+
+    let records = []
+
+    if (csvFile) {
+      // ===== Appwrite 格式：image.csv + images/ 資料夾 =====
+      console.log('偵測到 Appwrite image.zip 格式')
+      const csvText = await csvFile.async('text')
+      const cleanText = csvText.replace(/^\uFEFF/, '')
+      const parsed = parseImageCsv(cleanText)
+
+      if (parsed.length === 0) {
+        alert('CSV 檔案無有效資料')
+        return
+      }
+
+      const confirmMsg = `ℹ️ 偵測到 Appwrite image.zip 格式\n\n共 ${parsed.length} 筆圖片\n系統將自動上傳圖片至 Supabase Storage\n\n確定匯入？`
+      if (!confirm(confirmMsg)) return
+
+      const { uploadFile: uploadToStorage } = useStorage()
+      let uploadOk = 0
+      let uploadFail = 0
+
+      for (let i = 0; i < parsed.length; i++) {
+        const row = parsed[i]
+        // 移除 Appwrite 系統欄位
+        const mapped = {}
+        for (const [key, value] of Object.entries(row)) {
+          if (key.startsWith('$')) continue
+          mapped[key] = value
+        }
+
+        // 上傳圖片檔案
+        const localPath = mapped.file
+        if (localPath && localPath.startsWith('images/')) {
+          const zipEntry = zip.file(localPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = localPath.split('/').pop() || `image_${i}.jpg`
+              const fileObj = new window.File([blob], fileName, {
+                type: blob.type || `image/${mapped.filetype || 'jpeg'}`
+              })
+              const uploadResult = await uploadToStorage(fileObj, 'gallery')
+              if (uploadResult.success) {
+                mapped.file = uploadResult.url
+                uploadOk++
+              } else {
+                console.warn(`上傳圖片失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.file = ''
+                uploadFail++
+              }
+            } catch (err) {
+              console.warn(`上傳圖片失敗 (${mapped.name}):`, err)
+              mapped.file = ''
+              uploadFail++
+            }
+          } else {
+            console.warn(`ZIP 中找不到檔案: ${localPath}`)
+            mapped.file = ''
+          }
+        }
+
+        records.push(mapped)
+      }
+
+      if (uploadFail > 0) {
+        console.warn(`圖片上傳: ${uploadOk} 成功, ${uploadFail} 失敗`)
+      }
+
+    } else if (jsonFile) {
+      // ===== Supabase 格式：images.json =====
+      const jsonText = await jsonFile.async('text')
+      const jsonData = JSON.parse(jsonText)
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        alert('JSON 檔案格式錯誤或無資料')
+        return
+      }
+
+      records = jsonData.map(record => {
+        const { id, created_at, updated_at, ...rest } = record
+        return rest
+      })
+
+      if (!confirm(`確定要匯入 ${records.length} 筆圖片資料嗎？`)) return
+
+    } else {
+      alert('ZIP 檔案中找不到 images.json 或 image.csv')
       return
     }
 
-    const jsonText = await jsonFile.async('text')
-    const records = JSON.parse(jsonText)
-
-    if (!Array.isArray(records) || records.length === 0) {
-      alert('JSON 檔案格式錯誤或無資料')
-      return
-    }
-
-    // Filter out system fields
-    const cleanRecords = records.map(record => {
-      const { id, created_at, updated_at, ...rest } = record
-      return rest
-    })
-
-    if (!confirm(`確定要匯入 ${cleanRecords.length} 筆圖片資料嗎？`)) {
-      return
-    }
-
-    const result = await importImages(cleanRecords)
+    const result = await importImages(records)
     if (result.success) {
       alert(`✅ ${result.message}！共 ${result.count} 筆資料`)
     } else {
@@ -518,6 +585,34 @@ const handleImportZip = async (e) => {
   }
 
   e.target.value = ''
+}
+
+// 解析 image.csv（Appwrite 格式）
+const parseImageCsv = (text) => {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = '' }
+      else current += char
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = parseRow(lines[0])
+  return lines.slice(1).map(line => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    return obj
+  })
 }
 
 // SEO
