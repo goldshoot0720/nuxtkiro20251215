@@ -22,6 +22,19 @@
               style="display:none"
               @change="handleImportCsv"
             >
+            <button v-if="articles.length > 0" @click="exportArticlesZip" class="btn-export" :disabled="zipExporting">
+              <span class="icon">📦</span> {{ zipExporting ? '匯出中...' : '匯出 ZIP' }}
+            </button>
+            <button @click="$refs.zipFileInput.click()" class="btn-import" :disabled="zipImporting">
+              <span class="icon">📦</span> {{ zipImporting ? '匯入中...' : '匯入 ZIP' }}
+            </button>
+            <input
+              ref="zipFileInput"
+              type="file"
+              accept=".zip"
+              style="display:none"
+              @change="handleImportZip"
+            >
           </div>
           <button class="btn-primary" @click="openAddModal">
             <span class="icon">➕</span> 新增筆記
@@ -381,6 +394,9 @@ const exportArticlesCsv = () => {
 }
 
 const csvFileInput = ref(null)
+const zipFileInput = ref(null)
+const zipExporting = ref(false)
+const zipImporting = ref(false)
 
 const parseCsv = (text) => {
   const parseRow = (line) => {
@@ -508,6 +524,201 @@ const handleImportCsv = async (e) => {
     alert('匯入失敗: ' + result.error)
   }
   e.target.value = ''
+}
+
+// ZIP 匯出
+const exportArticlesZip = async () => {
+  if (articles.value.length === 0) {
+    alert('沒有資料可以匯出')
+    return
+  }
+
+  zipExporting.value = true
+  try {
+    const JSZip = (await import('jszip')).default
+    const zip = new JSZip()
+    const filesFolder = zip.folder('files')
+
+    // 建立 CSV header（使用 Appwrite 相容欄位名 newDate）
+    const header = ['title', 'content', 'newDate', 'url1', 'url2', 'url3', 'file1', 'file1name', 'file1type', 'file2', 'file2name', 'file2type', 'file3', 'file3name', 'file3type']
+    const csvRows = []
+
+    for (let rowIdx = 0; rowIdx < articles.value.length; rowIdx++) {
+      const a = articles.value[rowIdx]
+      const row = {
+        title: a.title || '',
+        content: a.content || '',
+        newDate: a.newdate || '',
+        url1: a.url1 || '',
+        url2: a.url2 || '',
+        url3: a.url3 || '',
+        file1: a.file1 || '',
+        file1name: a.file1name || '',
+        file1type: a.file1type || '',
+        file2: a.file2 || '',
+        file2name: a.file2name || '',
+        file2type: a.file2type || '',
+        file3: a.file3 || '',
+        file3name: a.file3name || '',
+        file3type: a.file3type || ''
+      }
+
+      // 下載每個 file slot 的附件並存入 ZIP
+      for (let slot = 1; slot <= 3; slot++) {
+        const fileUrl = row['file' + slot]
+        const fileName = row['file' + slot + 'name']
+        if (!fileUrl) continue
+
+        try {
+          const response = await fetch(fileUrl)
+          if (response.ok) {
+            const blob = await response.blob()
+            const zipFileName = `${rowIdx}_${slot}_${fileName || 'file'}`
+            filesFolder.file(zipFileName, blob)
+            row['file' + slot] = `files/${zipFileName}`
+          }
+        } catch (err) {
+          console.warn(`下載附件失敗 (row ${rowIdx}, slot ${slot}):`, err)
+        }
+      }
+
+      csvRows.push(row)
+    }
+
+    // 組裝 CSV
+    const bom = '\uFEFF'
+    const csvContent = bom + [
+      header,
+      ...csvRows.map(row => header.map(h => `"${String(row[h]).replace(/"/g, '""')}"`))
+    ].map(r => r.join(',')).join('\n')
+
+    zip.file('appwrite-article.csv', csvContent)
+
+    // 下載 ZIP
+    const blob = await zip.generateAsync({ type: 'blob' })
+    const link = document.createElement('a')
+    const url = URL.createObjectURL(blob)
+    link.href = url
+    link.download = 'appwrite-article.zip'
+    link.click()
+    URL.revokeObjectURL(url)
+
+    alert(`匯出成功！共 ${csvRows.length} 筆筆記`)
+  } catch (error) {
+    console.error('ZIP 匯出失敗:', error)
+    alert('匯出失敗：' + error.message)
+  } finally {
+    zipExporting.value = false
+  }
+}
+
+// ZIP 匯入
+const handleImportZip = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+
+  zipImporting.value = true
+  try {
+    const JSZip = (await import('jszip')).default
+    const zip = await JSZip.loadAsync(file)
+
+    // 找到 CSV 檔案（優先找 appwrite-article.csv，否則找任何 .csv）
+    let csvFile = zip.file('appwrite-article.csv')
+    if (!csvFile) {
+      const csvFiles = zip.file(/\.csv$/i)
+      if (csvFiles.length > 0) {
+        csvFile = csvFiles[0]
+      }
+    }
+    if (!csvFile) {
+      alert('ZIP 檔案中找不到 CSV 檔案')
+      return
+    }
+
+    const csvText = await csvFile.async('text')
+    let rows = parseCsv(csvText)
+    if (rows.length === 0) {
+      alert('CSV 檔案無有效資料')
+      return
+    }
+
+    // Appwrite 格式偵測與欄位轉換
+    const firstRow = rows[0]
+    const isAppwrite = '$id' in firstRow || '$createdAt' in firstRow || 'newDate' in firstRow
+
+    if (isAppwrite) {
+      console.log('偵測到 Appwrite 格式 ZIP，自動轉換欄位')
+      rows = rows.map(r => {
+        const mapped = {}
+        for (const [key, value] of Object.entries(r)) {
+          if (key.startsWith('$')) {
+            if (key === '$createdAt' && !r.newDate && !r.newdate) {
+              mapped.newdate = value
+            }
+            continue
+          }
+          if (key === 'newDate') {
+            mapped.newdate = value
+          } else {
+            mapped[key] = value
+          }
+        }
+        return mapped
+      })
+    }
+
+    if (!confirm(`確定匯入 ${rows.length} 筆筆記資料？\n（附件檔案將自動上傳至 Supabase Storage）`)) {
+      return
+    }
+
+    // 遍歷每筆記錄，上傳 files/ 中的附件
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
+      for (let slot = 1; slot <= 3; slot++) {
+        const filePath = row['file' + slot]
+        if (!filePath || !filePath.startsWith('files/')) continue
+
+        const zipEntry = zip.file(filePath)
+        if (!zipEntry) {
+          console.warn(`ZIP 中找不到檔案: ${filePath}`)
+          row['file' + slot] = ''
+          continue
+        }
+
+        try {
+          const blob = await zipEntry.async('blob')
+          const fileName = row['file' + slot + 'name'] || filePath.split('/').pop()
+          const fileObj = new File([blob], fileName, {
+            type: blob.type || 'application/octet-stream'
+          })
+
+          const result = await uploadFile(fileObj, 'article')
+          if (result.success) {
+            row['file' + slot] = result.url
+          } else {
+            console.warn(`上傳附件失敗 (row ${i}, slot ${slot}):`, result.error)
+            row['file' + slot] = ''
+          }
+        } catch (err) {
+          console.warn(`處理附件失敗 (row ${i}, slot ${slot}):`, err)
+          row['file' + slot] = ''
+        }
+      }
+    }
+
+    const result = await importArticles(rows)
+    if (result.success) {
+      alert(`匯入成功！共 ${result.count} 筆資料`)
+    } else {
+      alert('匯入失敗: ' + result.error)
+    }
+  } catch (error) {
+    console.error('ZIP 匯入失敗:', error)
+    alert('匯入失敗：' + error.message)
+  } finally {
+    zipImporting.value = false
+    e.target.value = ''
+  }
 }
 
 // 判斷是否為圖片類型
