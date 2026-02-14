@@ -122,7 +122,7 @@
               <input v-model="addForm.note" type="text" class="inline-input inline-small" placeholder="備註" />
             </td>
             <td class="col-account">
-              <input v-model="addForm.account" type="text" class="inline-input" placeholder="帳號/Email" />
+              <input v-model="addForm.account" type="text" class="inline-input" placeholder="帳號/Email" list="account-options" />
             </td>
             <td class="col-date">
               <input v-model="addForm.nextdate" type="date" class="inline-input inline-date" />
@@ -172,7 +172,7 @@
                 <input v-model="editForm.note" type="text" class="inline-input inline-small" placeholder="備註" />
               </td>
               <td class="col-account">
-                <input v-model="editForm.account" type="text" class="inline-input" placeholder="帳號/Email" />
+                <input v-model="editForm.account" type="text" class="inline-input" placeholder="帳號/Email" list="account-options" />
               </td>
               <td class="col-date">
                 <input v-model="editForm.nextdate" type="date" class="inline-input inline-date" />
@@ -295,6 +295,11 @@
         </div>
       </div>
     </div>
+
+    <!-- 帳號選項 datalist -->
+    <datalist id="account-options">
+      <option v-for="name in accountNames" :key="name" :value="name" />
+    </datalist>
   </div>
 </template>
 
@@ -302,6 +307,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useSubscriptions } from '../../composables/useSubscriptions'
 import { useFormatters } from '../../composables/useFormatters'
+import { useCommonAccounts } from '../../composables/useCommonAccounts'
 
 const searchQuery = ref('')
 const renewFilter = ref('all')
@@ -526,8 +532,19 @@ const filteredSubscriptions = computed(() => {
   return list
 })
 
+const { accounts: commonAccounts, loadAccounts: loadCommonAccounts } = useCommonAccounts()
+
+// 帳號名稱選項（從鈢兄常用讀取）
+const accountNames = computed(() => {
+  return commonAccounts.value
+    .map(a => a.name)
+    .filter(Boolean)
+    .sort()
+})
+
 onMounted(() => {
   loadSubscriptions()
+  loadCommonAccounts()
 })
 
 // 格式化日期為 ISO 8601 (Appwrite 格式)
