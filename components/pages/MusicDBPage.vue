@@ -81,8 +81,53 @@
           v-for="group in groupedMusics"
           :key="group.name"
           class="music-card"
-          :class="{ 'card-selected': group.items.some(m => selectedIds.has(m.id)) }"
+          :class="{ 'card-selected': group.items.some(m => selectedIds.has(m.id)), 'card-editing': editingId === getActiveItem(group).id }"
         >
+          <!-- 行內編輯模式 -->
+          <template v-if="editingId === getActiveItem(group).id">
+            <div class="card-header">
+              <input v-model="editForm.name" type="text" class="inline-input inline-name" placeholder="歌曲名稱">
+              <div class="card-actions">
+                <button class="btn-icon save" @click="saveInlineEdit" title="儲存">💾</button>
+                <button class="btn-icon" @click="cancelInlineEdit" title="取消">✕</button>
+              </div>
+            </div>
+            <div class="card-body inline-edit-content">
+              <div class="inline-edit-form">
+                <div class="inline-field-row">
+                  <label>語言</label>
+                  <input v-model="editForm.language" type="text" class="inline-input" placeholder="中文/英語/日語...">
+                </div>
+                <div class="inline-field-row">
+                  <label>分類</label>
+                  <input v-model="editForm.category" type="text" class="inline-input" placeholder="分類">
+                </div>
+                <div class="inline-field-row">
+                  <label>備註</label>
+                  <input v-model="editForm.note" type="text" class="inline-input" placeholder="備註">
+                </div>
+                <div class="inline-field-row">
+                  <label>參考</label>
+                  <input v-model="editForm.ref" type="text" class="inline-input" placeholder="參考">
+                </div>
+                <div class="inline-field-row">
+                  <label>歌詞</label>
+                  <textarea v-model="editForm.lyrics" class="inline-input inline-textarea" rows="3" placeholder="歌詞"></textarea>
+                </div>
+                <div class="inline-field-row">
+                  <label>Hash</label>
+                  <input v-model="editForm.hash" type="text" class="inline-input" placeholder="Hash">
+                </div>
+                <div class="inline-field-row">
+                  <label>封面URL</label>
+                  <input v-model="editForm.cover" type="text" class="inline-input" placeholder="封面 URL">
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 顯示模式 -->
+          <template v-else>
           <div class="card-header">
             <input
               v-if="batchMode"
@@ -93,7 +138,7 @@
             />
             <h3 class="card-title">{{ group.name || '未命名' }}</h3>
             <div class="card-actions">
-              <button @click="openEditModal(getActiveItem(group))" class="btn-edit" title="編輯">
+              <button @click="startInlineEdit(getActiveItem(group))" class="btn-edit" title="編輯">
                 ✎
               </button>
               <button @click="deleteRecord(getActiveItem(group).id)" class="btn-delete" title="刪除">
@@ -154,6 +199,7 @@
               {{ cachingMusicId === getActiveItem(group).id ? '⏳' : '📥' }}
             </button>
           </div>
+          </template>
         </div>
       </div>
 
@@ -298,7 +344,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, reactive } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { useMusicRecords } from '../../composables/useMusicRecords'
@@ -310,6 +356,46 @@ useHead({
 
 const { musics, loading, FIELDS, loadMusics, addMusic, updateMusic, deleteMusic, importMusics } = useMusicRecords()
 const { uploading, uploadProgress, uploadFile } = useStorage()
+
+// 行內編輯
+const editingId = ref(null)
+const editForm = reactive({})
+
+const startInlineEdit = (music) => {
+  Object.assign(editForm, {
+    id: music.id,
+    name: music.name || '',
+    file: music.file || '',
+    filetype: music.filetype || '',
+    lyrics: music.lyrics || '',
+    note: music.note || '',
+    ref: music.ref || '',
+    category: music.category || '',
+    hash: music.hash || '',
+    language: music.language || '',
+    cover: music.cover || ''
+  })
+  editingId.value = music.id
+}
+
+const cancelInlineEdit = () => {
+  editingId.value = null
+}
+
+const saveInlineEdit = async () => {
+  if (!editForm.name) {
+    alert('請輸入歌曲名稱')
+    return
+  }
+  try {
+    await updateMusic(editForm.id, { ...editForm })
+    editingId.value = null
+    await loadMusics()
+  } catch (error) {
+    console.error('Inline edit save error:', error)
+    alert('儲存失敗: ' + error.message)
+  }
+}
 
 const searchQuery = ref('')
 const showModal = ref(false)
@@ -962,6 +1048,80 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 行內編輯樣式 */
+.card-editing {
+  box-shadow: 0 4px 12px rgba(240, 147, 251, 0.2);
+  border-left: 4px solid #f093fb;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #f093fb;
+  box-shadow: 0 0 0 2px rgba(240, 147, 251, 0.15);
+}
+
+.inline-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.inline-edit-content {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+.inline-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inline-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.inline-field-row label {
+  min-width: 60px;
+  font-size: 0.8rem;
+  color: #666;
+  padding-top: 0.4rem;
+  flex-shrink: 0;
+}
+
+.inline-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-icon:hover {
+  background: #f0f0f0;
+}
+
+.btn-icon.save:hover {
+  background: #ecfdf5;
+}
 .music-db-page {
   animation: fadeIn 0.3s ease-in;
 }

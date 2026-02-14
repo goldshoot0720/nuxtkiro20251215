@@ -77,14 +77,51 @@
           v-for="document in filteredDocuments"
           :key="document.id"
           class="document-card"
-          :class="{ 'batch-selected': selectedIds.has(document.id) }"
+          :class="{ 'batch-selected': selectedIds.has(document.id), 'card-editing': inlineEditingId === document.id }"
           @click="batchMode && toggleSelect(document.id)"
           :style="{ cursor: batchMode ? 'pointer' : 'default' }"
         >
+          <!-- 行內編輯模式 -->
+          <template v-if="inlineEditingId === document.id">
+            <div class="card-header">
+              <input v-model="editForm.name" type="text" class="inline-input inline-name" placeholder="文件名稱">
+              <div class="card-actions">
+                <button class="btn-icon save" @click="saveInlineEdit" title="儲存">💾</button>
+                <button class="btn-icon" @click="cancelInlineEdit" title="取消">✕</button>
+              </div>
+            </div>
+            <div class="card-body inline-edit-content">
+              <div class="inline-edit-form">
+                <div class="inline-field-row">
+                  <label>分類</label>
+                  <input v-model="editForm.category" type="text" class="inline-input" placeholder="分類">
+                </div>
+                <div class="inline-field-row">
+                  <label>備註</label>
+                  <textarea v-model="editForm.note" class="inline-input inline-textarea" rows="3" placeholder="備註"></textarea>
+                </div>
+                <div class="inline-field-row">
+                  <label>參考</label>
+                  <input v-model="editForm.ref" type="text" class="inline-input" placeholder="參考">
+                </div>
+                <div class="inline-field-row">
+                  <label>Hash</label>
+                  <input v-model="editForm.hash" type="text" class="inline-input" placeholder="Hash">
+                </div>
+                <div class="inline-field-row">
+                  <label>封面URL</label>
+                  <input v-model="editForm.cover" type="text" class="inline-input" placeholder="封面 URL">
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 顯示模式 -->
+          <template v-else>
           <div class="card-header">
             <h3 class="card-title">{{ document.name || '未命名' }}</h3>
             <div class="card-actions">
-              <button @click="openEditModal(document)" class="btn-icon" title="編輯">
+              <button @click="startInlineEdit(document)" class="btn-icon" title="編輯">
                 ✏️
               </button>
               <button @click="confirmDelete(document)" class="btn-icon" title="刪除">
@@ -125,6 +162,7 @@
               {{ formatDate(document.created_at) }}
             </span>
           </div>
+          </template>
         </div>
       </div>
 
@@ -286,7 +324,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { useDocuments } from '../../composables/useDocuments'
@@ -344,6 +382,43 @@ const coverUploading = ref(false)
 const showModal = ref(false)
 const isEditing = ref(false)
 const editingId = ref(null)
+
+// 行內編輯
+const inlineEditingId = ref(null)
+const editForm = reactive({})
+
+const startInlineEdit = (doc) => {
+  Object.assign(editForm, {
+    id: doc.id,
+    name: doc.name || '',
+    file: doc.file || '',
+    note: doc.note || '',
+    ref: doc.ref || '',
+    category: doc.category || '',
+    hash: doc.hash || '',
+    cover: doc.cover || ''
+  })
+  inlineEditingId.value = doc.id
+}
+
+const cancelInlineEdit = () => {
+  inlineEditingId.value = null
+}
+
+const saveInlineEdit = async () => {
+  if (!editForm.name) {
+    alert('請輸入文件名稱')
+    return
+  }
+  try {
+    await updateDocument(editForm.id, { ...editForm })
+    inlineEditingId.value = null
+    await loadDocuments()
+  } catch (error) {
+    console.error('Inline edit save error:', error)
+    alert('儲存失敗: ' + error.message)
+  }
+}
 
 // Form data
 const formData = ref({
@@ -770,6 +845,67 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 行內編輯樣式 */
+.card-editing {
+  box-shadow: 0 4px 12px rgba(79, 172, 254, 0.2);
+  border-left: 4px solid #4facfe;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #4facfe;
+  box-shadow: 0 0 0 2px rgba(79, 172, 254, 0.15);
+}
+
+.inline-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.inline-edit-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.inline-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inline-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.inline-field-row label {
+  min-width: 60px;
+  font-size: 0.8rem;
+  color: #666;
+  padding-top: 0.4rem;
+  flex-shrink: 0;
+}
+
+.inline-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.btn-icon.save:hover {
+  background: #ecfdf5;
+}
+
 .document-page {
   animation: fadeIn 0.3s ease-in;
 }

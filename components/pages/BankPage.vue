@@ -67,7 +67,58 @@
 
       <!-- 銀行列表 Grid -->
       <div v-else class="bank-grid">
-        <div v-for="bank in banks" :key="bank.id" class="bank-card">
+        <div v-for="bank in banks" :key="bank.id" class="bank-card" :class="{ 'card-editing': editingId === bank.id }">
+          <!-- 行內編輯模式 -->
+          <template v-if="editingId === bank.id">
+            <div class="bank-header">
+              <div class="bank-title">
+                <input v-model="editForm.name" type="text" class="inline-input inline-name" placeholder="銀行名稱">
+              </div>
+              <div class="bank-actions">
+                <button class="btn-icon save" @click="saveInlineEdit" title="儲存">💾</button>
+                <button class="btn-icon" @click="cancelInlineEdit" title="取消">✕</button>
+              </div>
+            </div>
+            <div class="bank-info inline-edit-content">
+              <div class="inline-edit-form">
+                <div class="inline-field-row">
+                  <label>存款</label>
+                  <input v-model.number="editForm.deposit" type="number" class="inline-input" placeholder="存款金額">
+                </div>
+                <div class="inline-field-row">
+                  <label>帳號</label>
+                  <input v-model="editForm.account" type="text" class="inline-input" placeholder="帳號">
+                </div>
+                <div class="inline-field-row">
+                  <label>卡號</label>
+                  <input v-model="editForm.card" type="text" class="inline-input" placeholder="卡號">
+                </div>
+                <div class="inline-field-row">
+                  <label>分行</label>
+                  <input v-model="editForm.site" type="text" class="inline-input" placeholder="分行/網點">
+                </div>
+                <div class="inline-field-row">
+                  <label>地址</label>
+                  <input v-model="editForm.address" type="text" class="inline-input" placeholder="地址">
+                </div>
+                <div class="inline-field-row">
+                  <label>提款</label>
+                  <input v-model.number="editForm.withdrawals" type="number" class="inline-input" placeholder="提款">
+                </div>
+                <div class="inline-field-row">
+                  <label>轉帳</label>
+                  <input v-model.number="editForm.transfer" type="number" class="inline-input" placeholder="轉帳">
+                </div>
+                <div class="inline-field-row">
+                  <label>活動</label>
+                  <textarea v-model="editForm.activity" class="inline-input inline-textarea" rows="2" placeholder="活動/備註"></textarea>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 顯示模式 -->
+          <template v-else>
           <div class="bank-header">
             <div class="bank-title">
               <img 
@@ -80,7 +131,7 @@
               <h3 class="bank-name">{{ bank.name }}</h3>
             </div>
             <div class="bank-actions">
-              <button class="btn-icon" @click="editBank(bank)" title="編輯">✏️</button>
+              <button class="btn-icon" @click="startInlineEdit(bank)" title="編輯">✏️</button>
               <button class="btn-icon delete" @click="confirmDelete(bank)" title="刪除">🗑️</button>
             </div>
           </div>
@@ -127,6 +178,7 @@
               {{ showDetails[bank.id] ? '收起詳細資訊' : '顯示詳細資訊' }}
             </button>
           </div>
+          </template>
         </div>
       </div>
 
@@ -237,6 +289,43 @@ const showModal = ref(false)
 const isEditing = ref(false)
 const showDetails = ref({})
 const customBankName = ref('')
+
+// 行內編輯
+const editingId = ref(null)
+const editForm = reactive({})
+
+const startInlineEdit = (bank) => {
+  Object.assign(editForm, {
+    id: bank.id,
+    name: bank.name || '',
+    deposit: bank.deposit || 0,
+    site: bank.site || '',
+    address: bank.address || '',
+    withdrawals: bank.withdrawals || 0,
+    transfer: bank.transfer || 0,
+    activity: bank.activity || '',
+    card: bank.card || '',
+    account: bank.account || ''
+  })
+  editingId.value = bank.id
+}
+
+const cancelInlineEdit = () => {
+  editingId.value = null
+}
+
+const saveInlineEdit = async () => {
+  if (!editForm.name) {
+    alert('請輸入銀行名稱')
+    return
+  }
+  const result = await updateBank(editForm.id, { ...editForm })
+  if (result.success) {
+    editingId.value = null
+  } else {
+    alert('儲存失敗: ' + result.error)
+  }
+}
 
 const batchMode = ref(false)
 const selectedIds = ref(new Set())
@@ -524,6 +613,66 @@ useHead({
 </script>
 
 <style scoped>
+/* 行內編輯樣式 */
+.card-editing {
+  box-shadow: 0 4px 12px rgba(250, 112, 154, 0.2);
+  border-left: 4px solid #fa709a;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #fa709a;
+  box-shadow: 0 0 0 2px rgba(250, 112, 154, 0.15);
+}
+
+.inline-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.inline-edit-content {
+  padding: 1rem;
+}
+
+.inline-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.inline-field-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.inline-field-row label {
+  min-width: 50px;
+  font-size: 0.8rem;
+  color: #666;
+  padding-top: 0.4rem;
+  flex-shrink: 0;
+}
+
+.inline-textarea {
+  resize: vertical;
+  min-height: 50px;
+}
+
+.btn-icon.save:hover {
+  background: #ecfdf5;
+}
+
 .bank-page {
   animation: fadeIn 0.3s ease-in;
 }

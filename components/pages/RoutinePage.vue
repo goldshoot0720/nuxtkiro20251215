@@ -61,7 +61,26 @@
             </tr>
           </thead>
           <tbody>
-            <tr v-for="routine in filteredRoutines" :key="routine.id">
+            <tr v-for="routine in filteredRoutines" :key="routine.id" :class="{ 'row-editing': editingId === routine.id }">
+              <!-- 行內編輯模式 -->
+              <template v-if="editingId === routine.id">
+                <td class="td-name"><input v-model="editForm.name" type="text" class="inline-input" placeholder="名稱"></td>
+                <td class="td-note"><input v-model="editForm.note" type="text" class="inline-input" placeholder="備註"></td>
+                <td class="td-photo">
+                  <input v-model="editForm.photo" type="text" class="inline-input" placeholder="圖片 URL" style="font-size:0.75rem">
+                </td>
+                <td class="td-date"><input v-model="editForm.lastdate1" type="date" class="inline-input"></td>
+                <td class="td-date"><input v-model="editForm.lastdate2" type="date" class="inline-input"></td>
+                <td class="td-days"></td>
+                <td class="td-date"><input v-model="editForm.lastdate3" type="date" class="inline-input"></td>
+                <td class="td-actions">
+                  <button @click="saveInlineEdit" class="btn-save" title="儲存">💾</button>
+                  <button @click="cancelInlineEdit" class="btn-cancel" title="取消">✕</button>
+                </td>
+              </template>
+
+              <!-- 顯示模式 -->
+              <template v-else>
               <td class="td-name">{{ routine.name }}</td>
               <td class="td-note">{{ routine.note || '' }}</td>
               <td class="td-photo">
@@ -83,9 +102,10 @@
               <td class="td-date">{{ formatDate(routine.lastdate3) }}</td>
               <td class="td-actions">
                 <button @click="handleShiftDates(routine)" class="btn-shift" title="日期遞移">&rarr;</button>
-                <button @click="openEditModal(routine)" class="btn-edit">編輯</button>
+                <button @click="startInlineEdit(routine)" class="btn-edit">編輯</button>
                 <button @click="handleDelete(routine.id)" class="btn-delete">刪除</button>
               </td>
+              </template>
             </tr>
           </tbody>
         </table>
@@ -188,7 +208,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive } from 'vue'
 import { useHead } from '#app'
 import PageContainer from '../layout/PageContainer.vue'
 import { useRoutines } from '../../composables/useRoutines'
@@ -216,6 +236,42 @@ const photoInput = ref(null)
 const showModal = ref(false)
 const previewImage = ref(null)
 const isEditMode = ref(false)
+
+// 行內編輯
+const editingId = ref(null)
+const editForm = reactive({})
+
+const startInlineEdit = (routine) => {
+  Object.assign(editForm, {
+    id: routine.id,
+    name: routine.name || '',
+    note: routine.note || '',
+    photo: routine.photo || '',
+    lastdate1: routine.lastdate1 || '',
+    lastdate2: routine.lastdate2 || '',
+    lastdate3: routine.lastdate3 || ''
+  })
+  editingId.value = routine.id
+}
+
+const cancelInlineEdit = () => {
+  editingId.value = null
+}
+
+const saveInlineEdit = async () => {
+  if (!editForm.name) {
+    alert('請輸入例行名稱')
+    return
+  }
+  try {
+    await updateRoutine(editForm.id, { ...editForm })
+    editingId.value = null
+    await loadRoutines()
+  } catch (error) {
+    console.error('Inline edit save error:', error)
+    alert('儲存失敗: ' + error.message)
+  }
+}
 const formData = ref({
   id: null,
   name: '',
@@ -519,6 +575,53 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* 行內編輯樣式 */
+.row-editing {
+  background: #fffbeb !important;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
+}
+
+.btn-save {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-save:hover {
+  background: #ecfdf5;
+}
+
+.btn-cancel {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.btn-cancel:hover {
+  background: #fef2f2;
+}
 .routine-page {
   animation: fadeIn 0.3s ease-in;
 }
