@@ -32,9 +32,26 @@
           </label>
         </div>
 
-        <button @click="openAddModal" class="btn btn-primary">
-          新增文件
-        </button>
+      </div>
+
+      <!-- 摘要列 -->
+      <div class="summary-bar">
+        <div class="summary-left">
+          <button v-if="!batchMode && filteredDocuments.length > 0" @click="enterBatchMode" class="btn-batch-mode">批量選擇</button>
+          <button @click="openAddModal" class="btn-add-icon" title="新增">+</button>
+          <template v-if="batchMode">
+            <label class="select-all-label">
+              <input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" />
+              <span>全選</span>
+            </label>
+            <button @click="exitBatchMode" class="btn-cancel-batch">取消</button>
+          </template>
+          <span>共 {{ documents.length }} 個項目</span>
+          <span v-if="selectedIds.size > 0" class="selected-count">已選 {{ selectedIds.size }} 項</span>
+        </div>
+        <div class="summary-right">
+          <button v-if="selectedIds.size > 0" class="btn-batch-delete" @click="deleteSelected" :disabled="loading">刪除選中 ({{ selectedIds.size }})</button>
+        </div>
       </div>
 
       <!-- Loading State -->
@@ -60,6 +77,9 @@
           v-for="document in filteredDocuments"
           :key="document.id"
           class="document-card"
+          :class="{ 'batch-selected': selectedIds.has(document.id) }"
+          @click="batchMode && toggleSelect(document.id)"
+          :style="{ cursor: batchMode ? 'pointer' : 'default' }"
         >
           <div class="card-header">
             <h3 class="card-title">{{ document.name || '未命名' }}</h3>
@@ -272,6 +292,27 @@ const {
 
 // Search
 const searchQuery = ref('')
+
+// Batch mode
+const batchMode = ref(false)
+const selectedIds = ref(new Set())
+const enterBatchMode = () => { batchMode.value = true }
+const exitBatchMode = () => { batchMode.value = false; selectedIds.value = new Set() }
+const isAllSelected = computed(() => filteredDocuments.value.length > 0 && filteredDocuments.value.every(a => selectedIds.value.has(a.id)))
+const toggleSelect = (id) => { const s = new Set(selectedIds.value); if (s.has(id)) s.delete(id); else s.add(id); selectedIds.value = s }
+const toggleSelectAll = () => { if (isAllSelected.value) selectedIds.value = new Set(); else selectedIds.value = new Set(filteredDocuments.value.map(a => a.id)) }
+const deleteSelected = async () => {
+  const count = selectedIds.value.size
+  if (count === 0) return
+  if (count === documents.value.length) {
+    const input = prompt(`即將刪除全部 ${count} 筆！\n\n請輸入 DELETE document 確認：`)
+    if (input !== 'DELETE document') { alert('輸入不正確，已取消'); return }
+  } else { if (!confirm(`確定要刪除選中的 ${count} 筆嗎？`)) return }
+  let ok = 0
+  for (const id of [...selectedIds.value]) { const r = await deleteDocument(id); if (r.success) ok++ }
+  selectedIds.value = new Set(); batchMode.value = false
+  alert(`已刪除 ${ok} 筆`)
+}
 
 // Upload state
 const fileInput = ref(null)
@@ -1064,4 +1105,21 @@ onMounted(() => {
   transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
 }
+
+/* Summary Bar */
+.summary-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: linear-gradient(135deg, rgba(52, 152, 219, 0.08) 0%, rgba(46, 204, 113, 0.08) 100%); border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; color: #555; flex-wrap: wrap; gap: 0.5rem; }
+.summary-left, .summary-right { display: flex; align-items: center; gap: 1rem; }
+.select-all-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
+.select-all-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
+.selected-count { background: #3498db; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
+.btn-batch-mode { padding: 0.5rem 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; }
+.btn-batch-mode:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
+.btn-add-icon { width: 36px; height: 36px; border: none; border-radius: 50%; background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%); color: white; font-size: 1.5rem; font-weight: 300; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; line-height: 1; padding-bottom: 4px; }
+.btn-add-icon:hover { transform: translateY(-2px) scale(1.1); box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4); }
+.btn-cancel-batch { padding: 0.35rem 0.75rem; background: #e0e0e0; color: #666; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+.btn-cancel-batch:hover { background: #d0d0d0; }
+.btn-batch-delete { padding: 0.5rem 1rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; }
+.btn-batch-delete:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4); }
+.btn-batch-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+.document-card.batch-selected { border-color: #3498db; background: linear-gradient(135deg, rgba(52, 152, 219, 0.05) 0%, rgba(46, 204, 113, 0.05) 100%); }
 </style>

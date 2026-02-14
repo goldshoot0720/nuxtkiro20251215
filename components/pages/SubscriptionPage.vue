@@ -8,6 +8,20 @@
         class="search-input"
         placeholder="搜尋訂閱..."
       />
+      <div class="filter-buttons">
+        <button
+          :class="['filter-btn', { active: renewFilter === 'all' }]"
+          @click="renewFilter = 'all'"
+        >全部</button>
+        <button
+          :class="['filter-btn filter-on', { active: renewFilter === 'renew' }]"
+          @click="renewFilter = 'renew'"
+        >續訂</button>
+        <button
+          :class="['filter-btn filter-off', { active: renewFilter === 'notRenew' }]"
+          @click="renewFilter = 'notRenew'"
+        >非續訂</button>
+      </div>
       <div class="csv-actions">
         <button
           v-if="subscriptions.length > 0"
@@ -190,9 +204,15 @@
             <template v-else>
               <td class="col-name">
                 <div class="name-cell">
-                  <span class="service-name">{{ sub.name }}</span>
-                  <span v-if="sub.site" class="service-site">
-                    <a :href="sub.site" target="_blank">{{ sub.site }}</a>
+                  <span class="service-name-row">
+                    <img
+                      v-if="sub.site"
+                      :src="getFaviconUrl(sub.site)"
+                      class="service-favicon"
+                      @error="$event.target.style.display='none'"
+                    />
+                    <a v-if="sub.site" :href="sub.site" target="_blank" class="service-name service-link">{{ sub.name }}</a>
+                    <span v-else class="service-name">{{ sub.name }}</span>
                   </span>
                   <span v-if="sub.note" class="service-note">{{ sub.note }}</span>
                 </div>
@@ -284,6 +304,7 @@ import { useSubscriptions } from '../../composables/useSubscriptions'
 import { useFormatters } from '../../composables/useFormatters'
 
 const searchQuery = ref('')
+const renewFilter = ref('all')
 
 const {
   subscriptions,
@@ -455,6 +476,15 @@ const CURRENCIES = [
   { code: 'HKD', label: '港幣', rate: 4 }
 ]
 
+const getFaviconUrl = (site) => {
+  try {
+    const domain = new URL(site).hostname
+    return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+  } catch {
+    return ''
+  }
+}
+
 const getCurrencySymbol = (code) => {
   const map = { TWD: 'NT$', USD: 'US$', EUR: '€', JPY: '¥', CNY: '¥', HKD: 'HK$' }
   return map[code] || 'NT$'
@@ -474,14 +504,26 @@ const totalMonthlyCostTWD = computed(() => {
 })
 
 const filteredSubscriptions = computed(() => {
+  let list = sortedSubscriptions.value
+
+  // 續訂篩選
+  if (renewFilter.value === 'renew') {
+    list = list.filter(s => s.iscontinue !== false)
+  } else if (renewFilter.value === 'notRenew') {
+    list = list.filter(s => s.iscontinue === false)
+  }
+
+  // 關鍵字搜尋
   const q = searchQuery.value.trim().toLowerCase()
-  if (!q) return sortedSubscriptions.value
-  return sortedSubscriptions.value.filter(s =>
-    (s.name || '').toLowerCase().includes(q) ||
-    (s.account || '').toLowerCase().includes(q) ||
-    (s.site || '').toLowerCase().includes(q) ||
-    (s.note || '').toLowerCase().includes(q)
-  )
+  if (q) {
+    list = list.filter(s =>
+      (s.name || '').toLowerCase().includes(q) ||
+      (s.account || '').toLowerCase().includes(q) ||
+      (s.site || '').toLowerCase().includes(q) ||
+      (s.note || '').toLowerCase().includes(q)
+    )
+  }
+  return list
 })
 
 onMounted(() => {
@@ -621,6 +663,47 @@ defineExpose({ subscriptions, totalMonthlyCost })
 .search-input:focus {
   outline: none;
   border-color: #3498db;
+}
+
+.filter-buttons {
+  display: flex;
+  gap: 0.25rem;
+  background: #f0f0f0;
+  border-radius: 8px;
+  padding: 0.25rem;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: transparent;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.filter-btn:hover {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.filter-btn.active {
+  background: white;
+  color: #333;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.filter-btn.filter-on.active {
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+}
+
+.filter-btn.filter-off.active {
+  background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+  color: white;
 }
 
 .csv-actions {
@@ -981,16 +1064,25 @@ defineExpose({ subscriptions, totalMonthlyCost })
   color: #2c3e50;
 }
 
-.service-site {
-  font-size: 0.8rem;
+.service-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
-.service-site a {
+.service-favicon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  border-radius: 3px;
+}
+
+.service-link {
   color: #3498db;
   text-decoration: none;
 }
 
-.service-site a:hover {
+.service-link:hover {
   text-decoration: underline;
 }
 
