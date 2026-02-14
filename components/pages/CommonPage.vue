@@ -53,6 +53,22 @@
         </div>
       </div>
 
+      <!-- 網站名稱篩選標籤 -->
+      <div v-if="siteTagCounts.length > 0" class="site-filter-bar">
+        <button 
+          class="site-tag" 
+          :class="{ active: !selectedSiteFilter }" 
+          @click="selectedSiteFilter = null"
+        >全部</button>
+        <button 
+          v-for="tag in siteTagCounts" 
+          :key="tag.name" 
+          class="site-tag" 
+          :class="{ active: selectedSiteFilter === tag.name }"
+          @click="selectedSiteFilter = selectedSiteFilter === tag.name ? null : tag.name"
+        >{{ tag.name }} ({{ tag.count }})</button>
+      </div>
+
       <!-- 載入中 -->
       <div v-if="loading && accounts.length === 0" class="loading-state">
         <div class="spinner"></div>
@@ -222,6 +238,7 @@ const {
 const showModal = ref(false)
 const isEditing = ref(false)
 const searchQuery = ref('')
+const selectedSiteFilter = ref(null)
 const errorMessage = ref('')
 
 // 批量選擇
@@ -396,30 +413,56 @@ const getFriendlyName = (name) => {
   return name
 }
 
-// 篩選功能
-const filteredAccounts = computed(() => {
-  if (!searchQuery.value.trim()) {
-    return accounts.value
-  }
-  
-  const query = searchQuery.value.toLowerCase()
-  return accounts.value.filter(account => {
-    // 搜尋項目名稱
-    if (account.name && account.name.toLowerCase().includes(query)) {
-      return true
-    }
-    
-    // 搜尋 site01~site37
+// 網站名稱統計（所有 site01~site37 的值 + 出現次數）
+const siteTagCounts = computed(() => {
+  const counts = {}
+  for (const account of accounts.value) {
     for (let i = 1; i <= 37; i++) {
       const key = padIndex(i)
       const site = account[`site${key}`]
-      if (site && site.toLowerCase().includes(query)) {
-        return true
+      if (site && site.trim()) {
+        const name = site.trim()
+        counts[name] = (counts[name] || 0) + 1
       }
     }
-    
-    return false
-  })
+  }
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+})
+
+// 篩選功能
+const filteredAccounts = computed(() => {
+  let result = accounts.value
+
+  // 網站名稱標籤篩選
+  if (selectedSiteFilter.value) {
+    const filter = selectedSiteFilter.value
+    result = result.filter(account => {
+      for (let i = 1; i <= 37; i++) {
+        const key = padIndex(i)
+        const site = account[`site${key}`]
+        if (site && site.trim() === filter) return true
+      }
+      return false
+    })
+  }
+
+  // 文字搜尋
+  if (searchQuery.value.trim()) {
+    const query = searchQuery.value.toLowerCase()
+    result = result.filter(account => {
+      if (account.name && account.name.toLowerCase().includes(query)) return true
+      for (let i = 1; i <= 37; i++) {
+        const key = padIndex(i)
+        const site = account[`site${key}`]
+        if (site && site.toLowerCase().includes(query)) return true
+      }
+      return false
+    })
+  }
+
+  return result
 })
 
 // 初始化
@@ -732,6 +775,42 @@ useHead({
 
 .search-input::placeholder {
   color: #999;
+}
+
+/* 網站名稱篩選標籤列 */
+.site-filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.site-tag {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: 16px;
+  background: white;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #666;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.site-tag:hover {
+  border-color: #8ec5fc;
+  color: #333;
+  background: #eef6ff;
+}
+
+.site-tag.active {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: white;
+  border-color: transparent;
+  font-weight: 600;
 }
 
 .search-result-info {
