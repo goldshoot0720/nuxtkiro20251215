@@ -723,6 +723,7 @@ useHead({
   border-left: 4px solid #667eea;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .image-card:hover {
@@ -779,6 +780,9 @@ useHead({
   color: #333;
   margin: 0 0 0.75rem 0;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-details {

@@ -127,6 +127,25 @@
         </div>
       </div>
 
+      <!-- 匯入進度 Overlay -->
+      <div v-if="importProgress.active" class="import-overlay">
+        <div class="import-modal-box">
+          <div class="import-spinner-anim"></div>
+          <h3 class="import-title">{{ importProgress.title }}</h3>
+          <p class="import-step">{{ importProgress.step }}</p>
+          <div class="import-progress-bar">
+            <div class="import-progress-fill" :style="{ width: importProgress.percent + '%' }"></div>
+          </div>
+          <p class="import-percent">{{ importProgress.current }} / {{ importProgress.total }}（{{ importProgress.percent }}%）</p>
+          <p v-if="importProgress.itemName" class="import-item-name">{{ importProgress.itemName }}</p>
+          <div v-if="importProgress.stats" class="import-stats">
+            <span v-if="importProgress.stats.audioOk > 0" class="stat-tag stat-ok">🎧 {{ importProgress.stats.audioOk }}</span>
+            <span v-if="importProgress.stats.coverOk > 0" class="stat-tag stat-ok">🖼️ {{ importProgress.stats.coverOk }}</span>
+            <span v-if="importProgress.stats.fail > 0" class="stat-tag stat-fail">❌ {{ importProgress.stats.fail }}</span>
+          </div>
+        </div>
+      </div>
+
       <!-- Add/Edit Modal -->
       <div v-if="showModal" class="modal-overlay" @click.self="closeModal">
         <div class="modal-content">
@@ -578,48 +597,216 @@ const exportToZIP = async () => {
   }
 }
 
-// ZIP Import
+// 匯入進度狀態
+const importProgress = ref({
+  active: false, title: '', step: '', current: 0, total: 0, percent: 0, itemName: '', stats: null
+})
+function updateImportProgress(fields) {
+  Object.assign(importProgress.value, fields)
+  if (fields.current !== undefined && importProgress.value.total > 0) {
+    importProgress.value.percent = Math.round((fields.current / importProgress.value.total) * 100)
+  }
+}
+function resetImportProgress() {
+  importProgress.value = { active: false, title: '', step: '', current: 0, total: 0, percent: 0, itemName: '', stats: null }
+}
+
+// CSV Parser
+const parsePodcastCsv = (text) => {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = '' }
+      else current += char
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = parseRow(lines[0])
+  return lines.slice(1).map(line => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    return obj
+  })
+}
+
+// ZIP Import — 相容 supabase (podcasts.json) 及 appwrite (podcast.csv + podcast/ + covers/)
 const handleImportZIP = async (event) => {
   const file = event.target.files?.[0]
   if (!file) return
 
   try {
-    // Dynamically import JSZip
-    const JSZip = (await import('jszip')).default
+    updateImportProgress({ active: true, title: '📦 正在解壓 ZIP...', step: '讀取檔案中', current: 0, total: 1, stats: null, itemName: file.name })
 
+    const JSZip = (await import('jszip')).default
     const zip = await JSZip.loadAsync(file)
 
-    // Look for JSON file
+    const csvFile = zip.file('podcast.csv')
     const jsonFile = zip.file('podcasts.json')
-    if (!jsonFile) {
-      alert('ZIP 檔案中找不到 podcasts.json')
+
+    let records = []
+
+    if (csvFile) {
+      // ===== Appwrite 格式：podcast.csv + podcast/ + covers/ =====
+      updateImportProgress({ step: '解析 CSV...', itemName: 'podcast.csv' })
+      const csvText = await csvFile.async('text')
+      const cleanText = csvText.replace(/^\uFEFF/, '')
+      const parsed = parsePodcastCsv(cleanText)
+
+      if (parsed.length === 0) {
+        resetImportProgress()
+        alert('CSV 檔案無有效資料')
+        return
+      }
+
+      resetImportProgress()
+      const confirmMsg = `ℹ️ 偵測到 Appwrite podcast.zip 格式\n\n共 ${parsed.length} 筆播客\n系統將自動上傳音檔、封面至 Supabase Storage\n\n確定匯入？`
+      if (!confirm(confirmMsg)) return
+
+      updateImportProgress({
+        active: true, title: '🎧 匯入播客中...', step: '準備上傳',
+        current: 0, total: parsed.length,
+        stats: { audioOk: 0, coverOk: 0, fail: 0 }, itemName: ''
+      })
+
+      const { uploadFile: uploadToStorage } = useStorage()
+      const stats = { audioOk: 0, coverOk: 0, fail: 0 }
+
+      for (let i = 0; i < parsed.length; i++) {
+        const row = parsed[i]
+        const mapped = {}
+        for (const [key, value] of Object.entries(row)) {
+          if (key.startsWith('$')) continue
+          mapped[key] = value
+        }
+
+        const itemLabel = mapped.name || `第 ${i + 1} 筆`
+        updateImportProgress({ current: i + 1, itemName: itemLabel })
+
+        // 上傳音檔 (podcast/ 資料夾)
+        const filePath = mapped.file
+        if (filePath && filePath.startsWith('podcast/')) {
+          updateImportProgress({ step: `🎧 上傳音檔 ${i + 1}/${parsed.length}` })
+          const zipEntry = zip.file(filePath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = filePath.split('/').pop() || `podcast_${i}.mp3`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'mp3'
+              const mimeMap = { mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac', wma: 'audio/x-ms-wma' }
+              const fileObj = new window.File([blob], fileName, { type: mimeMap[ext] || `audio/${ext}` })
+              const uploadResult = await uploadToStorage(fileObj, 'podcast')
+              if (uploadResult.success) {
+                mapped.file = uploadResult.url
+                if (!mapped.filetype) mapped.filetype = ext
+                stats.audioOk++
+              } else {
+                console.warn(`上傳音檔失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.file = ''
+                stats.fail++
+              }
+            } catch (err) {
+              console.warn(`上傳音檔失敗 (${mapped.name}):`, err)
+              mapped.file = ''
+              stats.fail++
+            }
+          } else {
+            mapped.file = ''
+          }
+        }
+
+        // 上傳封面 (covers/ 資料夾)
+        const coverPath = mapped.cover
+        if (coverPath && coverPath.startsWith('covers/')) {
+          updateImportProgress({ step: `🖼️ 上傳封面 ${i + 1}/${parsed.length}` })
+          const zipEntry = zip.file(coverPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = coverPath.split('/').pop() || `cover_${i}.jpg`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg'
+              const fileObj = new window.File([blob], fileName, { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` })
+              const uploadResult = await uploadToStorage(fileObj, 'podcast-covers')
+              if (uploadResult.success) {
+                mapped.cover = uploadResult.url
+                stats.coverOk++
+              } else {
+                console.warn(`上傳封面失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.cover = ''
+                stats.fail++
+              }
+            } catch (err) {
+              console.warn(`上傳封面失敗 (${mapped.name}):`, err)
+              mapped.cover = ''
+              stats.fail++
+            }
+          } else {
+            mapped.cover = ''
+          }
+        }
+
+        updateImportProgress({ stats: { ...stats } })
+        records.push(mapped)
+      }
+
+    } else if (jsonFile) {
+      // ===== Supabase 格式：podcasts.json =====
+      updateImportProgress({ step: '解析 JSON...', itemName: 'podcasts.json' })
+      const jsonText = await jsonFile.async('text')
+      const jsonData = JSON.parse(jsonText)
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        resetImportProgress()
+        alert('JSON 檔案格式錯誤或無資料')
+        return
+      }
+
+      records = jsonData.map(record => {
+        const { id, created_at, updated_at, ...rest } = record
+        return rest
+      })
+
+      resetImportProgress()
+      if (!confirm(`確定要匯入 ${records.length} 筆播客記錄嗎？`)) return
+
+      updateImportProgress({ active: true, title: '📥 匯入中...', step: '寫入資料庫', current: 0, total: records.length })
+
+    } else {
+      resetImportProgress()
+      alert('ZIP 檔案中找不到 podcast.csv 或 podcasts.json')
       return
     }
 
-    const jsonText = await jsonFile.async('text')
-    const records = JSON.parse(jsonText)
-
-    if (!Array.isArray(records) || records.length === 0) {
-      alert('JSON 檔案格式錯誤或無資料')
-      return
-    }
-
-    // Filter out system fields
-    const cleanRecords = records.map(record => {
-      const { id, created_at, updated_at, ...rest } = record
-      return rest
-    })
-
-    if (confirm(`確定要匯入 ${cleanRecords.length} 筆播客記錄嗎？`)) {
-      await importPodcasts(cleanRecords)
-      alert('匯入成功！')
+    // 匯入記錄到資料庫
+    if (records.length > 0) {
+      updateImportProgress({ step: '💾 寫入資料庫...', current: importProgress.value.total, percent: 99 })
+      const result = await importPodcasts(records)
+      resetImportProgress()
+      if (result.success) {
+        await loadPodcasts()
+        alert(`✅ ${result.message}！共 ${result.count} 筆資料`)
+      } else {
+        alert('匯入失敗: ' + result.error)
+      }
+    } else {
+      resetImportProgress()
     }
   } catch (error) {
+    resetImportProgress()
     console.error('Error importing ZIP:', error)
     alert('匯入失敗：' + error.message)
+  } finally {
+    event.target.value = ''
   }
-
-  event.target.value = ''
 }
 
 // Load data on mount
@@ -1133,4 +1320,47 @@ onMounted(() => {
 .btn-batch-delete { padding: 0.5rem 1rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; }
 .btn-batch-delete:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4); }
 .btn-batch-delete:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Import Progress Overlay ── */
+.import-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.55); backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; animation: fadeIn 0.2s ease;
+}
+.import-modal-box {
+  background: white; border-radius: 20px;
+  padding: 2.5rem 2rem; width: 90%; max-width: 420px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.import-spinner-anim {
+  width: 48px; height: 48px; margin: 0 auto 1.25rem;
+  border: 4px solid #e5e7eb; border-top-color: #38ef7d;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+}
+.import-title { font-size: 1.3rem; font-weight: 700; color: #1f2937; margin: 0 0 0.5rem; }
+.import-step { font-size: 0.95rem; color: #6b7280; margin: 0 0 1.25rem; }
+.import-progress-bar {
+  width: 100%; height: 10px; background: #e5e7eb;
+  border-radius: 99px; overflow: hidden; margin-bottom: 0.75rem;
+}
+.import-progress-fill {
+  height: 100%; background: linear-gradient(90deg, #11998e 0%, #38ef7d 100%);
+  border-radius: 99px; transition: width 0.3s ease;
+}
+.import-percent { font-size: 0.9rem; color: #374151; font-weight: 600; margin: 0 0 0.25rem; }
+.import-item-name {
+  font-size: 0.85rem; color: #9ca3af; margin: 0 0 1rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.import-stats { display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap; }
+.stat-tag { font-size: 0.8rem; padding: 0.25rem 0.6rem; border-radius: 12px; font-weight: 500; }
+.stat-ok { background: #d1fae5; color: #065f46; }
+.stat-fail { background: #fee2e2; color: #991b1b; }
 </style>

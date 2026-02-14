@@ -44,6 +44,32 @@
         </div>
       </div>
 
+      <!-- 快取狀態列 -->
+      <div class="cache-bar">
+        <div class="cache-info">
+          <span class="cache-icon">💾</span>
+          <span>已快取 <strong>{{ cachedCount }}</strong> / {{ videosWithFile.length }} 部影片</span>
+          <span v-if="totalCacheSize > 0" class="cache-size">({{ (totalCacheSize / 1024 / 1024).toFixed(1) }} MB)</span>
+        </div>
+        <div class="cache-actions">
+          <button
+            v-if="cachedCount < videosWithFile.length"
+            @click="cacheAllVideos"
+            class="btn-cache-all"
+            :disabled="cachingVideoId !== null"
+          >
+            {{ cachingVideoId !== null ? '⏳ 快取中...' : '📥 全部快取' }}
+          </button>
+          <button
+            v-if="cachedCount > 0"
+            @click="clearAllCache"
+            class="btn-clear-cache"
+          >
+            🗑️ 清除快取
+          </button>
+        </div>
+      </div>
+
       <!-- Loading State -->
       <div v-if="loading" class="loading">載入中...</div>
 
@@ -62,42 +88,129 @@
           :class="{ 'is-selected': selectedIds.has(video.id) }"
           @click="batchMode && toggleSelection(video.id)"
         >
-          <div class="card-header">
-            <input v-if="batchMode" type="checkbox" :checked="selectedIds.has(video.id)" @click.stop="toggleSelection(video.id)" class="batch-checkbox" />
-            <h3 class="video-name">{{ video.name || '未命名' }}</h3>
-            <span v-if="video.category" class="category-badge">{{
-              video.category
-            }}</span>
-          </div>
+          <!-- 行內編輯模式 -->
+          <template v-if="inlineEditId === video.id">
+            <div class="inline-edit-form">
+              <div class="inline-form-group">
+                <label>名稱 *</label>
+                <input v-model="inlineEditData.name" type="text" class="inline-input" placeholder="影片名稱" />
+              </div>
+              <div class="inline-form-group">
+                <label>分類</label>
+                <input v-model="inlineEditData.category" type="text" class="inline-input" placeholder="分類" />
+              </div>
+              <div class="inline-form-group">
+                <label>備註</label>
+                <textarea v-model="inlineEditData.note" class="inline-textarea" rows="2" placeholder="備註"></textarea>
+              </div>
+              <div class="inline-form-group">
+                <label>上傳影片</label>
+                <div class="upload-area">
+                  <input
+                    ref="inlineVideoInput"
+                    type="file"
+                    accept="video/*"
+                    @change="handleInlineVideoUpload"
+                    style="display: none"
+                  />
+                  <button type="button" @click="$refs.inlineVideoInput.click()" class="btn-upload" :disabled="inlineVideoUploading">
+                    {{ inlineVideoUploading ? '上傳中...' : '選擇影片' }}
+                  </button>
+                </div>
+                <div v-if="inlineEditData.file" class="inline-video-preview">
+                  <video :src="inlineEditData.file" controls preload="metadata" class="card-video"></video>
+                </div>
+              </div>
+              <div class="inline-form-group">
+                <label>檔案路徑</label>
+                <input v-model="inlineEditData.file" type="text" class="inline-input" placeholder="URL" />
+              </div>
+              <div class="inline-form-group">
+                <label>檔案類型</label>
+                <input v-model="inlineEditData.filetype" type="text" class="inline-input" placeholder="mp4, avi..." />
+              </div>
+              <div class="inline-form-group">
+                <label>參考</label>
+                <input v-model="inlineEditData.ref" type="text" class="inline-input" placeholder="參考連結" />
+              </div>
+              <div class="inline-form-group">
+                <label>雜湊值</label>
+                <input v-model="inlineEditData.hash" type="text" class="inline-input" placeholder="Hash" />
+              </div>
+              <div class="inline-form-group">
+                <label>封面上傳</label>
+                <div class="upload-area">
+                  <input
+                    ref="inlineCoverInput"
+                    type="file"
+                    accept="image/*"
+                    @change="handleInlineCoverUpload"
+                    style="display: none"
+                  />
+                  <button type="button" @click="$refs.inlineCoverInput.click()" class="btn-upload" :disabled="inlineCoverUploading">
+                    {{ inlineCoverUploading ? '上傳中...' : '選擇封面' }}
+                  </button>
+                </div>
+                <div v-if="inlineEditData.cover" class="inline-cover-preview">
+                  <img :src="inlineEditData.cover" alt="封面預覽" class="preview-cover-img" />
+                  <button type="button" @click="inlineEditData.cover = ''" class="btn-remove-sm">移除</button>
+                </div>
+                <input v-model="inlineEditData.cover" type="text" class="inline-input" placeholder="或輸入封面 URL" />
+              </div>
+              <div class="inline-edit-actions">
+                <button @click="saveInlineEdit" class="btn-save" :disabled="loading">儲存</button>
+                <button @click="cancelInlineEdit" class="btn-cancel-inline">取消</button>
+              </div>
+            </div>
+          </template>
 
-          <div class="card-body">
-            <div v-if="video.note" class="video-note">
-              {{ truncateText(video.note, 100) }}
+          <!-- YouTube/Bilibili 風格顯示模式 -->
+          <template v-else>
+            <!-- 播放模式 -->
+            <div v-if="playingVideoId === video.id && video.file" class="player-wrapper">
+              <video :src="getVideoSrc(video)" controls autoplay class="active-player"></video>
+              <button @click.stop="playingVideoId = null" class="close-player-btn" title="關閉播放">✕</button>
+            </div>
+            <!-- 縮圖區域 -->
+            <div v-else class="thumbnail-wrapper" @click="video.file && (playingVideoId = video.id)">
+              <input v-if="batchMode" type="checkbox" :checked="selectedIds.has(video.id)" @click.stop="toggleSelection(video.id)" class="batch-checkbox" />
+              <template v-if="video.cover">
+                <img :src="video.cover" :alt="video.name" class="thumbnail-img" />
+              </template>
+              <template v-else-if="video.file">
+                <video :src="getVideoSrc(video)" preload="metadata" class="thumbnail-video" muted></video>
+              </template>
+              <div v-else class="thumbnail-placeholder">
+                <span class="placeholder-icon">🎬</span>
+              </div>
+              <!-- 播放按鈕覆蓋層 -->
+              <div v-if="video.file" class="play-overlay">
+                <span class="play-btn">▶</span>
+              </div>
+              <!-- 類型標籤 -->
+              <span v-if="video.filetype" class="filetype-tag">{{ video.filetype.toUpperCase() }}</span>
             </div>
 
-            <div class="video-info">
-              <div v-if="video.file" class="card-video-wrapper">
-                <video :src="video.file" controls preload="metadata" class="card-video"></video>
+            <!-- 影片資訊區 -->
+            <div class="video-meta">
+              <h3 class="video-title">{{ video.name || '未命名' }}</h3>
+              <div class="meta-row">
+                <span v-if="video.category" class="category-chip">{{ video.category }}</span>
+                <span v-if="video.ref" class="meta-ref" :title="video.ref">🔗 參考</span>
               </div>
-              <div v-if="video.filetype" class="info-item">
-                <strong>類型:</strong> {{ video.filetype }}
-              </div>
-              <div v-if="video.ref" class="info-item">
-                <strong>參考:</strong> {{ video.ref }}
-              </div>
-              <div v-if="video.hash" class="info-item">
-                <strong>雜湊:</strong> {{ truncateText(video.hash, 16) }}
-              </div>
-              <div v-if="video.cover" class="info-item">
-                <strong>封面:</strong> {{ video.cover }}
-              </div>
+              <p v-if="video.note" class="video-desc">{{ truncateText(video.note, 80) }}</p>
             </div>
-          </div>
 
-          <div v-if="!batchMode" class="card-actions">
-            <button @click="openEditModal(video)" class="btn-edit">編輯</button>
-            <button @click="handleDelete(video)" class="btn-delete">刪除</button>
-          </div>
+            <!-- 操作列 -->
+            <div v-if="!batchMode" class="card-actions-bar">
+              <button @click="startInlineEdit(video)" class="action-btn edit-btn" title="編輯">✏️</button>
+              <button @click="handleDelete(video)" class="action-btn delete-btn" title="刪除">🗑️</button>
+              <template v-if="video.file">
+                <button v-if="videoCache.has(video.id)" @click.stop="uncacheVideo(video.id)" class="action-btn cached-btn" title="已快取 (點擊清除)">✅</button>
+                <button v-else @click.stop="cacheVideo(video)" class="action-btn cache-btn" :disabled="cachingVideoId === video.id" :title="cachingVideoId === video.id ? '快取中...' : '快取影片'">{{ cachingVideoId === video.id ? '⏳' : '📥' }}</button>
+              </template>
+            </div>
+          </template>
         </div>
       </div>
 
@@ -305,6 +418,154 @@ const formData = ref({
   cover: ''
 })
 
+// Video player state
+const playingVideoId = ref(null)
+
+// Video caching state
+const videoCache = ref(new Map()) // id -> { blobUrl, size }
+const cachingVideoId = ref(null)
+const totalCacheSize = ref(0)
+
+function getVideoSrc(video) {
+  const cached = videoCache.value.get(video.id)
+  if (cached) return cached.blobUrl
+  return video.file
+}
+
+async function cacheVideo(video) {
+  if (!video.file || videoCache.value.has(video.id)) return
+  cachingVideoId.value = video.id
+  try {
+    const response = await fetch(video.file)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    videoCache.value.set(video.id, { blobUrl, size: blob.size, name: video.name })
+    totalCacheSize.value += blob.size
+    // Force reactivity
+    videoCache.value = new Map(videoCache.value)
+    console.log(`✅ 快取成功: ${video.name} (${(blob.size / 1024 / 1024).toFixed(1)} MB)`)
+  } catch (err) {
+    console.error(`快取失敗: ${video.name}`, err)
+    alert(`快取失敗: ${err.message}`)
+  } finally {
+    cachingVideoId.value = null
+  }
+}
+
+function uncacheVideo(videoId) {
+  const cached = videoCache.value.get(videoId)
+  if (cached) {
+    URL.revokeObjectURL(cached.blobUrl)
+    totalCacheSize.value -= cached.size
+    videoCache.value.delete(videoId)
+    videoCache.value = new Map(videoCache.value)
+  }
+}
+
+async function cacheAllVideos() {
+  const uncached = filteredVideos.value.filter(v => v.file && !videoCache.value.has(v.id))
+  if (uncached.length === 0) { alert('所有影片已快取'); return }
+  if (!confirm(`確定要快取 ${uncached.length} 部影片？`)) return
+  for (const video of uncached) {
+    await cacheVideo(video)
+  }
+  alert(`快取完成！共 ${videoCache.value.size} 部影片 (${(totalCacheSize.value / 1024 / 1024).toFixed(1)} MB)`)
+}
+
+function clearAllCache() {
+  if (!confirm('確定要清除所有影片快取？')) return
+  for (const [, cached] of videoCache.value) {
+    URL.revokeObjectURL(cached.blobUrl)
+  }
+  videoCache.value = new Map()
+  totalCacheSize.value = 0
+}
+
+// Inline editing state
+const inlineEditId = ref(null)
+const inlineEditData = ref({})
+const inlineVideoInput = ref(null)
+const inlineCoverInput = ref(null)
+const inlineVideoUploading = ref(false)
+const inlineCoverUploading = ref(false)
+
+function startInlineEdit(video) {
+  inlineEditId.value = video.id
+  inlineEditData.value = {
+    name: video.name || '',
+    file: video.file || '',
+    filetype: video.filetype || '',
+    note: video.note || '',
+    ref: video.ref || '',
+    category: video.category || '',
+    hash: video.hash || '',
+    cover: video.cover || ''
+  }
+}
+
+function cancelInlineEdit() {
+  inlineEditId.value = null
+  inlineEditData.value = {}
+}
+
+async function saveInlineEdit() {
+  if (!inlineEditData.value.name) {
+    alert('請輸入影片名稱')
+    return
+  }
+  try {
+    await updateVideo(inlineEditId.value, inlineEditData.value)
+    await loadVideos()
+    inlineEditId.value = null
+    inlineEditData.value = {}
+  } catch (error) {
+    console.error('更新失敗:', error)
+    alert('更新失敗: ' + error.message)
+  }
+}
+
+async function handleInlineVideoUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  inlineVideoUploading.value = true
+  try {
+    const result = await uploadFile(file, 'video')
+    if (result.success) {
+      inlineEditData.value.file = result.url
+      if (!inlineEditData.value.name) {
+        inlineEditData.value.name = file.name.replace(/\.[^.]+$/, '')
+      }
+      const ext = file.name.split('.').pop()
+      if (ext) inlineEditData.value.filetype = ext
+    } else {
+      alert('上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    alert('上傳失敗: ' + error.message)
+  } finally {
+    inlineVideoUploading.value = false
+  }
+}
+
+async function handleInlineCoverUpload(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+  inlineCoverUploading.value = true
+  try {
+    const result = await uploadFile(file, 'video-covers')
+    if (result.success) {
+      inlineEditData.value.cover = result.url
+    } else {
+      alert('封面上傳失敗: ' + result.error)
+    }
+  } catch (error) {
+    alert('封面上傳失敗: ' + error.message)
+  } finally {
+    inlineCoverUploading.value = false
+  }
+}
+
 // Computed
 const filteredVideos = computed(() => {
   if (!searchQuery.value.trim()) {
@@ -319,6 +580,9 @@ const filteredVideos = computed(() => {
 const isAllSelected = computed(() => {
   return filteredVideos.value.length > 0 && filteredVideos.value.every(v => selectedIds.value.has(v.id))
 })
+
+const videosWithFile = computed(() => videos.value.filter(v => v.file))
+const cachedCount = computed(() => videoCache.value.size)
 
 // Batch mode methods
 function enterBatchMode() {
@@ -434,6 +698,9 @@ async function handleVideoUpload(event) {
     const result = await uploadFile(file, 'video')
     if (result.success) {
       formData.value.file = result.url
+      if (!formData.value.name) {
+        formData.value.name = file.name.replace(/\.[^.]+$/, '')
+      }
       const ext = file.name.split('.').pop()
       if (ext) formData.value.filetype = ext
       alert('影片上傳成功！')
@@ -554,45 +821,178 @@ async function exportZip() {
   }
 }
 
-// ZIP Import
+// CSV Parser
+function parseCsv(text) {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = '' }
+      else current += char
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = parseRow(lines[0])
+  return lines.slice(1).map(line => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    return obj
+  })
+}
+
+// ZIP Import (相容 Appwrite 結構: video.csv + videos/ + covers/)
 async function handleImport(event) {
   const file = event.target.files[0]
   if (!file) return
 
   try {
-    // Dynamically import JSZip
     const JSZip = (await import('jszip')).default
-
     const zip = await JSZip.loadAsync(file)
 
-    // Look for JSON file
+    // 偵測格式：Appwrite (video.csv) vs Supabase (videos.json)
+    const csvFile = zip.file('video.csv')
     const jsonFile = zip.file('videos.json')
-    if (!jsonFile) {
-      alert('ZIP 檔案中找不到 videos.json')
+
+    let records = []
+
+    if (csvFile) {
+      // ===== Appwrite 格式：video.csv + videos/ 資料夾 + covers/ 資料夾 =====
+      console.log('偵測到 Appwrite video.zip 格式')
+      const csvText = await csvFile.async('text')
+      const cleanText = csvText.replace(/^\uFEFF/, '')
+      const parsed = parseCsv(cleanText)
+
+      if (parsed.length === 0) {
+        alert('CSV 檔案無有效資料')
+        return
+      }
+
+      const confirmMsg = `ℹ️ 偵測到 Appwrite video.zip 格式\n\n共 ${parsed.length} 筆影片\n系統將自動上傳影片與封面至 Supabase Storage\n\n確定匯入？`
+      if (!confirm(confirmMsg)) return
+
+      const { uploadFile: uploadToStorage } = useStorage()
+      let videoUploadOk = 0, videoUploadFail = 0
+      let coverUploadOk = 0, coverUploadFail = 0
+
+      for (let i = 0; i < parsed.length; i++) {
+        const row = parsed[i]
+        // 移除 Appwrite 系統欄位 ($id, $createdAt, $updatedAt, $permissions, $databaseId, $collectionId)
+        const mapped = {}
+        for (const [key, value] of Object.entries(row)) {
+          if (key.startsWith('$')) continue
+          mapped[key] = value
+        }
+
+        // 上傳影片檔案 (videos/ 資料夾)
+        const videoPath = mapped.file
+        if (videoPath && videoPath.startsWith('videos/')) {
+          const zipEntry = zip.file(videoPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = videoPath.split('/').pop() || `video_${i}.mp4`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'mp4'
+              const mimeMap = { mp4: 'video/mp4', avi: 'video/x-msvideo', mov: 'video/quicktime', mkv: 'video/x-matroska', webm: 'video/webm', wmv: 'video/x-ms-wmv' }
+              const fileObj = new window.File([blob], fileName, {
+                type: mimeMap[ext] || `video/${ext}`
+              })
+              const uploadResult = await uploadToStorage(fileObj, 'video')
+              if (uploadResult.success) {
+                mapped.file = uploadResult.url
+                videoUploadOk++
+              } else {
+                console.warn(`上傳影片失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.file = ''
+                videoUploadFail++
+              }
+            } catch (err) {
+              console.warn(`上傳影片失敗 (${mapped.name}):`, err)
+              mapped.file = ''
+              videoUploadFail++
+            }
+          } else {
+            console.warn(`ZIP 中找不到影片檔案: ${videoPath}`)
+            mapped.file = ''
+          }
+        }
+
+        // 上傳封面圖 (covers/ 資料夾)
+        const coverPath = mapped.cover
+        if (coverPath && coverPath.startsWith('covers/')) {
+          const zipEntry = zip.file(coverPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = coverPath.split('/').pop() || `cover_${i}.jpg`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg'
+              const fileObj = new window.File([blob], fileName, {
+                type: `image/${ext === 'jpg' ? 'jpeg' : ext}`
+              })
+              const uploadResult = await uploadToStorage(fileObj, 'video-covers')
+              if (uploadResult.success) {
+                mapped.cover = uploadResult.url
+                coverUploadOk++
+              } else {
+                console.warn(`上傳封面失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.cover = ''
+                coverUploadFail++
+              }
+            } catch (err) {
+              console.warn(`上傳封面失敗 (${mapped.name}):`, err)
+              mapped.cover = ''
+              coverUploadFail++
+            }
+          } else {
+            console.warn(`ZIP 中找不到封面檔案: ${coverPath}`)
+            mapped.cover = ''
+          }
+        }
+
+        records.push(mapped)
+        console.log(`匯入進度: ${i + 1}/${parsed.length}`)
+      }
+
+      if (videoUploadFail > 0 || coverUploadFail > 0) {
+        console.warn(`影片上傳: ${videoUploadOk} 成功, ${videoUploadFail} 失敗 | 封面上傳: ${coverUploadOk} 成功, ${coverUploadFail} 失敗`)
+      }
+
+    } else if (jsonFile) {
+      // ===== Supabase 格式：videos.json =====
+      const jsonText = await jsonFile.async('text')
+      const jsonData = JSON.parse(jsonText)
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        alert('JSON 檔案格式錯誤或無資料')
+        return
+      }
+
+      records = jsonData.map(record => {
+        const { id, created_at, updated_at, ...rest } = record
+        return rest
+      })
+
+      if (!confirm(`確定要匯入 ${records.length} 筆影片記錄嗎？`)) return
+
+    } else {
+      alert('ZIP 檔案中找不到 video.csv 或 videos.json')
       return
     }
 
-    const jsonText = await jsonFile.async('text')
-    const records = JSON.parse(jsonText)
-
-    if (!Array.isArray(records) || records.length === 0) {
-      alert('JSON 檔案格式錯誤或無資料')
-      return
+    // 匯入記錄到資料庫
+    if (records.length > 0) {
+      await importVideos(records)
+      alert(`成功匯入 ${records.length} 筆影片資料`)
+      await loadVideos()
     }
-
-    // Filter out system fields
-    const cleanRecords = records.map(record => {
-      const { id, created_at, updated_at, ...rest } = record
-      return rest
-    })
-
-    if (!confirm(`確定要匯入 ${cleanRecords.length} 筆影片記錄嗎？`)) {
-      return
-    }
-
-    await importVideos(cleanRecords)
-    alert(`成功匯入 ${cleanRecords.length} 筆資料`)
-    await loadVideos()
   } catch (error) {
     console.error('匯入失敗:', error)
     alert('匯入失敗：' + error.message)
@@ -613,47 +1013,44 @@ onMounted(() => {
 }
 
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .page-title {
   font-size: 2rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 2rem;
 }
 
+/* ── Actions Bar ── */
 .actions-bar {
   display: flex;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   flex-wrap: wrap;
 }
 
 .search-input {
   flex: 1;
   min-width: 200px;
-  padding: 0.75rem 1rem;
-  border: 2px solid #e2e8f0;
-  border-radius: 8px;
-  font-size: 1rem;
+  padding: 0.6rem 1rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 20px;
+  font-size: 0.95rem;
   transition: all 0.2s;
+  background: #f9fafb;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.15);
+  background: white;
 }
 
 .csv-actions {
@@ -665,197 +1062,349 @@ onMounted(() => {
 .btn-import {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 600;
+  gap: 0.4rem;
+  padding: 0.6rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .btn-export:hover,
 .btn-import:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #e5e7eb;
+  border-color: #9ca3af;
 }
 
-.btn-import {
-  cursor: pointer;
+.btn-import { cursor: pointer; }
+
+/* ── Cache Bar ── */
+.cache-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border: 1px solid #bae6fd;
+  border-radius: 12px;
+  flex-wrap: wrap;
 }
 
-.btn-add {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.cache-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #0369a1;
+}
+
+.cache-icon {
+  font-size: 1.1rem;
+}
+
+.cache-size {
+  color: #0284c7;
+  font-weight: 500;
+}
+
+.cache-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-cache-all {
+  padding: 0.35rem 0.85rem;
+  background: linear-gradient(135deg, #0ea5e9, #0284c7);
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.btn-add:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+.btn-cache-all:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  transform: translateY(-1px);
+}
+
+.btn-cache-all:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-clear-cache {
+  padding: 0.35rem 0.85rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-cache:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
 }
 
 .loading,
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;
-  color: #64748b;
+  color: #9ca3af;
   font-size: 1.1rem;
 }
 
+/* ── YouTube/Bilibili Grid ── */
 .video-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
 }
 
+@media (min-width: 1200px) {
+  .video-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+}
+
+/* ── Video Card ── */
 .video-card {
   background: white;
   border-radius: 12px;
-  padding: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  overflow: hidden;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  position: relative;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
 .video-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.2);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
 }
 
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.video-name {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 0;
-  flex: 1;
-  word-break: break-word;
-}
-
-.category-badge {
-  display: inline-block;
-  padding: 0.25rem 0.75rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.card-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.video-note {
-  color: #64748b;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  padding: 0.75rem;
-  background: #f8fafc;
-  border-radius: 8px;
-  border-left: 3px solid #667eea;
-}
-
-.card-video-wrapper {
-  border-radius: 8px;
-  overflow: hidden;
-  background: #000;
-}
-
-.card-video {
+/* ── Thumbnail Area ── */
+.thumbnail-wrapper {
+  position: relative;
   width: 100%;
-  max-height: 220px;
-  display: block;
-  border-radius: 8px;
-}
-
-.video-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.info-item {
-  font-size: 0.9rem;
-  color: #475569;
-  word-break: break-all;
-}
-
-.info-item strong {
-  color: #334155;
-  font-weight: 600;
-  margin-right: 0.5rem;
-}
-
-.card-actions {
-  display: flex;
-  gap: 0.75rem;
-  padding-top: 1rem;
-  border-top: 1px solid #e2e8f0;
-}
-
-.btn-edit,
-.btn-delete {
-  flex: 1;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  font-weight: 600;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+  background: #0f0f0f;
+  overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.btn-edit {
-  background: #667eea;
-  color: white;
-}
-
-.btn-edit:hover {
-  background: #5568d3;
-  transform: translateY(-1px);
-}
-
-.btn-delete {
-  background: #ef4444;
-  color: white;
-}
-
-.btn-delete:hover {
-  background: #dc2626;
-  transform: translateY(-1px);
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
+.thumbnail-img,
+.thumbnail-video {
+  position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.video-card:hover .thumbnail-img,
+.video-card:hover .thumbnail-video {
+  transform: scale(1.05);
+}
+
+.thumbnail-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+}
+
+.placeholder-icon {
+  font-size: 3rem;
+  opacity: 0.6;
+}
+
+/* Play Overlay */
+.play-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0);
+  transition: all 0.25s ease;
+  opacity: 0;
+}
+
+.video-card:hover .play-overlay {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.play-btn {
+  width: 52px;
+  height: 52px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  color: #0f0f0f;
+  transform: scale(0.8);
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  padding-left: 4px;
+}
+
+.video-card:hover .play-btn {
+  transform: scale(1);
+}
+
+/* Filetype Tag */
+.filetype-tag {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+}
+
+/* Batch Checkbox */
+.batch-checkbox {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  z-index: 2;
+  accent-color: #ff6b6b;
+}
+
+/* ── Video Meta ── */
+.video-meta {
+  padding: 0.75rem 0.875rem 0.5rem;
+}
+
+.video-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #0f0f0f;
+  margin: 0 0 0.4rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.25rem;
+}
+
+.category-chip {
+  font-size: 0.75rem;
+  color: #606060;
+  background: #f2f2f2;
+  padding: 0.15rem 0.5rem;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.meta-ref {
+  font-size: 0.75rem;
+  color: #065fd4;
+  cursor: pointer;
+}
+
+.video-desc {
+  font-size: 0.8rem;
+  color: #606060;
+  line-height: 1.4;
+  margin: 0.25rem 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Action Buttons (hover reveal) ── */
+.card-actions-bar {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0 0.75rem 0.75rem;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: all 0.2s ease;
+}
+
+.video-card:hover .card-actions-bar {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.action-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.edit-btn:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.delete-btn:hover {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+/* ── Selected Card ── */
+.video-card.is-selected {
+  box-shadow: 0 0 0 2px #ff6b6b;
+  cursor: pointer;
+}
+
+/* ── Modal Styles ── */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -866,7 +1415,7 @@ onMounted(() => {
 
 .modal-content {
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
@@ -878,22 +1427,22 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e2e8f0;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .modal-header h2 {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 700;
-  color: #1e293b;
+  color: #0f0f0f;
   margin: 0;
 }
 
 .btn-close {
   background: none;
   border: none;
-  font-size: 2rem;
-  color: #64748b;
+  font-size: 1.75rem;
+  color: #9ca3af;
   cursor: pointer;
   padding: 0;
   width: 32px;
@@ -901,13 +1450,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 50%;
   transition: all 0.2s;
 }
 
 .btn-close:hover {
-  background: #f1f5f9;
-  color: #1e293b;
+  background: #f3f4f6;
+  color: #374151;
 }
 
 .modal-body {
@@ -920,202 +1469,409 @@ onMounted(() => {
 
 .form-group label {
   display: block;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   font-weight: 600;
-  color: #334155;
-  font-size: 0.95rem;
+  color: #374151;
+  font-size: 0.9rem;
 }
 
 .form-group input,
 .form-group textarea {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e2e8f0;
+  padding: 0.65rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.9rem;
   transition: all 0.2s;
-  font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-group textarea {
-  resize: vertical;
-  min-height: 100px;
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
 }
 
 .modal-actions {
   display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e5e7eb;
+  justify-content: flex-end;
 }
 
-.btn-cancel,
+.btn-cancel {
+  padding: 0.6rem 1.25rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover { background: #e5e7eb; }
+
 .btn-submit {
-  flex: 1;
-  padding: 0.75rem 1.5rem;
+  padding: 0.6rem 1.25rem;
+  background: #ff6b6b;
+  color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+  border-radius: 20px;
+  font-size: 0.9rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
-.btn-cancel {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.btn-cancel:hover {
-  background: #e2e8f0;
-  color: #475569;
-}
-
-.btn-submit {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-}
-
 .btn-submit:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  background: #ee5a5a;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-  .page-title {
-    font-size: 1.5rem;
-  }
-
-  .actions-bar {
-    flex-direction: column;
-  }
-
-  .search-input {
-    width: 100%;
-  }
-
-  .csv-actions {
-    width: 100%;
-  }
-
-  .btn-export,
-  .btn-import,
-  .btn-add {
-    flex: 1;
-  }
-
-  .video-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .modal-content {
-    margin: 1rem;
-  }
-}
-
-/* Upload Area Styles */
-.upload-area {
+/* ── Video/Cover Preview in Modal ── */
+.video-preview,
+.cover-preview {
+  margin-top: 0.5rem;
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.btn-upload {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: all 0.3s;
-}
-
-.btn-upload:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-upload:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.upload-progress {
-  font-size: 0.9rem;
-  color: #667eea;
-  font-weight: 500;
-}
-
-.video-preview, .cover-preview {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 0.75rem 0;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 8px;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .preview-video {
-  max-width: 200px;
-  max-height: 120px;
-  border-radius: 6px;
+  width: 100%;
+  max-height: 200px;
+  border-radius: 8px;
+  background: #000;
 }
 
 .preview-image {
-  max-width: 150px;
-  max-height: 100px;
-  border-radius: 6px;
+  max-width: 200px;
+  max-height: 120px;
+  border-radius: 8px;
   object-fit: cover;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .btn-remove {
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  color: white;
-  border: none;
+  padding: 0.3rem 0.75rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
   border-radius: 6px;
+  font-size: 0.8rem;
   cursor: pointer;
-  font-size: 0.85rem;
-  font-weight: 500;
-  transition: all 0.3s;
+  transition: all 0.2s;
+  align-self: flex-start;
 }
 
 .btn-remove:hover {
-  transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(245, 87, 108, 0.3);
+  background: #dc2626;
+  color: white;
 }
 
-/* Summary Bar Styles */
-.summary-bar { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: linear-gradient(135deg, rgba(52, 152, 219, 0.08) 0%, rgba(46, 204, 113, 0.08) 100%); border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.95rem; color: #555; flex-wrap: wrap; gap: 0.5rem; }
-.summary-left, .summary-right { display: flex; align-items: center; gap: 1rem; }
-.select-all-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; }
-.select-all-label input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; }
-.selected-count { background: #3498db; color: white; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.85rem; font-weight: 600; }
-.btn-batch-mode { padding: 0.5rem 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; }
-.btn-batch-mode:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4); }
-.btn-add-icon { width: 36px; height: 36px; border: none; border-radius: 50%; background: linear-gradient(135deg, #3498db 0%, #2ecc71 100%); color: white; font-size: 1.5rem; font-weight: 300; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s; line-height: 1; padding-bottom: 4px; }
-.btn-add-icon:hover { transform: translateY(-2px) scale(1.1); box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4); }
-.btn-cancel-batch { padding: 0.35rem 0.75rem; background: #e0e0e0; color: #666; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
-.btn-cancel-batch:hover { background: #d0d0d0; }
-.btn-batch-delete { padding: 0.5rem 1rem; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.9rem; font-weight: 600; transition: all 0.3s; }
-.btn-batch-delete:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(245, 87, 108, 0.4); }
+.upload-progress {
+  font-size: 0.85rem;
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+/* ── Summary Bar ── */
+.summary-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-radius: 10px;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.summary-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.summary-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.selected-count {
+  color: #ff6b6b;
+  font-weight: 600;
+}
+
+.btn-add-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #ff6b6b;
+  background: white;
+  color: #ff6b6b;
+  font-size: 1.25rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-add-icon:hover {
+  background: #ff6b6b;
+  color: white;
+  transform: rotate(90deg);
+}
+
+.btn-batch-mode {
+  padding: 0.4rem 0.75rem;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 18px;
+  color: #6b7280;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-batch-mode:hover { background: #f3f4f6; }
+
+.select-all-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.btn-cancel-batch {
+  padding: 0.3rem 0.6rem;
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 15px;
+  color: #6b7280;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.btn-cancel-batch:hover { background: #f3f4f6; }
+
+.btn-batch-delete {
+  padding: 0.4rem 0.75rem;
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-batch-delete:hover {
+  background: #ee5a5a;
+  transform: translateY(-1px);
+}
+
 .btn-batch-delete:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* Batch Mode Card Styles */
-.video-card.is-selected { border: 2px solid #3498db; background: rgba(52, 152, 219, 0.05); }
-.batch-checkbox { width: 18px; height: 18px; cursor: pointer; margin-right: 0.5rem; }
-.video-card { cursor: default; }
-.video-card.is-selected { cursor: pointer; }
+/* ── Inline Edit Styles ── */
+.inline-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.inline-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.inline-form-group label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+.inline-textarea {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  resize: vertical;
+  font-family: inherit;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.inline-textarea:focus {
+  outline: none;
+  border-color: #ff6b6b;
+  box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+}
+
+.inline-video-preview {
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 0.25rem;
+}
+
+.card-video {
+  width: 100%;
+  display: block;
+}
+
+.inline-cover-preview {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.preview-cover-img {
+  width: 80px;
+  height: 45px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-remove-sm {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-remove-sm:hover { background: #dc2626; color: white; }
+
+.inline-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-save {
+  padding: 0.45rem 1rem;
+  background: #ff6b6b;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save:hover {
+  background: #ee5a5a;
+  transform: translateY(-1px);
+}
+
+.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-cancel-inline {
+  padding: 0.45rem 1rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 18px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel-inline:hover { background: #e5e7eb; }
+
+.upload-area {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-upload {
+  padding: 0.35rem 0.7rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-upload:hover { background: #e5e7eb; }
+.btn-upload:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Active Player */
+.player-wrapper {
+  position: relative;
+  width: 100%;
+  background: #000;
+}
+
+.active-player {
+  width: 100%;
+  display: block;
+  max-height: 300px;
+}
+
+.close-player-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  background: rgba(0, 0, 0, 0.65);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  z-index: 2;
+}
+
+.close-player-btn:hover {
+  background: rgba(255, 107, 107, 0.9);
+  transform: scale(1.1);
+}
 </style>

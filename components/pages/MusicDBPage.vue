@@ -35,11 +35,37 @@
             <label class="select-all-label"><input type="checkbox" :checked="isAllSelected" @change="toggleSelectAll" /><span>全選</span></label>
             <button @click="exitBatchMode" class="btn-cancel-batch">取消</button>
           </template>
-          <span>共 {{ musics.length }} 個項目</span>
+          <span>共 {{ musics.length }} 首 ({{ groupedMusics.length }} 組)</span>
           <span v-if="selectedIds.size > 0" class="selected-count">已選 {{ selectedIds.size }} 項</span>
         </div>
         <div class="summary-right">
           <button v-if="selectedIds.size > 0" class="btn-batch-delete" @click="deleteSelected" :disabled="loading">刪除選中 ({{ selectedIds.size }})</button>
+        </div>
+      </div>
+
+      <!-- 快取狀態列 -->
+      <div class="cache-bar">
+        <div class="cache-info">
+          <span class="cache-icon">💾</span>
+          <span>已快取 <strong>{{ cachedCount }}</strong> / {{ musicsWithFile.length }} 首音樂</span>
+          <span v-if="totalCacheSize > 0" class="cache-size">({{ (totalCacheSize / 1024 / 1024).toFixed(1) }} MB)</span>
+        </div>
+        <div class="cache-actions">
+          <button
+            v-if="cachedCount < musicsWithFile.length"
+            @click="cacheAllMusics"
+            class="btn-cache-all"
+            :disabled="cachingMusicId !== null"
+          >
+            {{ cachingMusicId !== null ? '⏳ 快取中...' : '📥 全部快取' }}
+          </button>
+          <button
+            v-if="cachedCount > 0"
+            @click="clearAllMusicCache"
+            class="btn-clear-cache"
+          >
+            🗑️ 清除快取
+          </button>
         </div>
       </div>
 
@@ -52,55 +78,103 @@
 
       <div v-else class="music-grid">
         <div
-          v-for="music in filteredMusics"
-          :key="music.id"
+          v-for="group in groupedMusics"
+          :key="group.name"
           class="music-card"
-          :class="{ 'card-selected': selectedIds.has(music.id) }"
+          :class="{ 'card-selected': group.items.some(m => selectedIds.has(m.id)) }"
         >
           <div class="card-header">
             <input
               v-if="batchMode"
               type="checkbox"
-              :checked="selectedIds.has(music.id)"
-              @change="toggleSelect(music.id)"
+              :checked="group.items.every(m => selectedIds.has(m.id))"
+              @change="toggleGroupSelect(group)"
               class="card-checkbox"
             />
-            <h3 class="card-title">{{ music.name || '未命名' }}</h3>
+            <h3 class="card-title">{{ group.name || '未命名' }}</h3>
             <div class="card-actions">
-              <button @click="openEditModal(music)" class="btn-edit" title="編輯">
+              <button @click="openEditModal(getActiveItem(group))" class="btn-edit" title="編輯">
                 ✎
               </button>
-              <button @click="deleteRecord(music.id)" class="btn-delete" title="刪除">
+              <button @click="deleteRecord(getActiveItem(group).id)" class="btn-delete" title="刪除">
                 ✕
               </button>
             </div>
           </div>
           <div class="card-body">
-            <div v-if="music.category || music.language" class="badges">
-              <span v-if="music.category" class="badge badge-category">{{ music.category }}</span>
-              <span v-if="music.language" class="badge badge-language">{{ music.language }}</span>
+            <!-- 語言切換 chips -->
+            <div v-if="group.items.length > 1" class="lang-chips">
+              <button
+                v-for="(item, idx) in group.items"
+                :key="item.id"
+                class="lang-chip"
+                :class="{ active: getActiveIndex(group) === idx }"
+                @click="setActiveVersion(group.name, idx)"
+              >
+                {{ item.language || '未知語言' }}
+              </button>
             </div>
-            <div v-if="music.file || music.cover" class="card-media">
-              <div v-if="music.cover" class="card-cover">
-                <img :src="music.cover" :alt="music.name || '封面'" class="card-cover-image" />
+            <!-- 單一語言時顯示 badge -->
+            <div v-else class="badges">
+              <span v-if="getActiveItem(group).category" class="badge badge-category">{{ getActiveItem(group).category }}</span>
+              <span v-if="getActiveItem(group).language" class="badge badge-language">{{ getActiveItem(group).language }}</span>
+            </div>
+            <!-- 分類 badge (多語言也顯示) -->
+            <div v-if="group.items.length > 1 && getActiveItem(group).category" class="badges" style="margin-top: 0.25rem">
+              <span class="badge badge-category">{{ getActiveItem(group).category }}</span>
+            </div>
+            <div v-if="getActiveItem(group).file || getActiveItem(group).cover" class="card-media">
+              <div v-if="getActiveItem(group).cover" class="card-cover">
+                <img :src="getActiveItem(group).cover" :alt="group.name || '封面'" class="card-cover-image" />
               </div>
-              <div v-if="music.file" class="card-audio">
-                <audio controls :src="music.file" class="audio-player" @play="pauseOthers($event)"></audio>
+              <div v-if="getActiveItem(group).file" class="card-audio">
+                <audio controls :src="getAudioSrc(getActiveItem(group))" class="audio-player" @play="pauseOthers($event)"></audio>
               </div>
             </div>
-            <div v-if="music.lyrics" class="card-field">
+            <div v-if="getActiveItem(group).lyrics" class="card-field">
               <strong>歌詞:</strong>
-              <pre class="lyrics-text">{{ music.lyrics }}</pre>
+              <pre class="lyrics-text">{{ getActiveItem(group).lyrics }}</pre>
             </div>
-            <p v-if="music.note" class="card-field">
-              <strong>備註:</strong> {{ truncate(music.note, 80) }}
+            <p v-if="getActiveItem(group).note" class="card-field">
+              <strong>備註:</strong> {{ truncate(getActiveItem(group).note, 80) }}
             </p>
-            <p v-if="music.ref" class="card-field">
-              <strong>參考:</strong> {{ music.ref }}
+            <p v-if="getActiveItem(group).ref" class="card-field">
+              <strong>參考:</strong> {{ getActiveItem(group).ref }}
             </p>
-            <p v-if="music.hash" class="card-field">
-              <strong>Hash:</strong> {{ music.hash }}
+            <p v-if="getActiveItem(group).hash" class="card-field">
+              <strong>Hash:</strong> {{ getActiveItem(group).hash }}
             </p>
+            <!-- 多版本提示 -->
+            <p v-if="group.items.length > 1" class="version-hint">
+              共 {{ group.items.length }} 個語言版本
+            </p>
+          </div>
+          <!-- 快取按鈕 -->
+          <div v-if="getActiveItem(group).file && !batchMode" class="card-cache-actions">
+            <button v-if="musicCache.has(getActiveItem(group).id)" @click="uncacheMusic(getActiveItem(group).id)" class="btn-cached" title="已快取 (點擊清除)">✅</button>
+            <button v-else @click="cacheMusicItem(getActiveItem(group))" class="btn-cache" :disabled="cachingMusicId === getActiveItem(group).id" :title="cachingMusicId === getActiveItem(group).id ? '快取中...' : '快取音樂'">
+              {{ cachingMusicId === getActiveItem(group).id ? '⏳' : '📥' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 匯入進度 Overlay -->
+      <div v-if="importProgress.active" class="import-overlay">
+        <div class="import-modal">
+          <div class="import-spinner"></div>
+          <h3 class="import-title">{{ importProgress.title }}</h3>
+          <p class="import-step">{{ importProgress.step }}</p>
+          <div class="import-progress-bar">
+            <div class="import-progress-fill" :style="{ width: importProgress.percent + '%' }"></div>
+          </div>
+          <p class="import-percent">{{ importProgress.current }} / {{ importProgress.total }}（{{ importProgress.percent }}%）</p>
+          <p v-if="importProgress.itemName" class="import-item-name">{{ importProgress.itemName }}</p>
+          <div v-if="importProgress.stats" class="import-stats">
+            <span v-if="importProgress.stats.musicOk > 0" class="stat-tag stat-ok">🎵 {{ importProgress.stats.musicOk }}</span>
+            <span v-if="importProgress.stats.lyricsOk > 0" class="stat-tag stat-ok">📝 {{ importProgress.stats.lyricsOk }}</span>
+            <span v-if="importProgress.stats.coverOk > 0" class="stat-tag stat-ok">🖼️ {{ importProgress.stats.coverOk }}</span>
+            <span v-if="importProgress.stats.fail > 0" class="stat-tag stat-fail">❌ {{ importProgress.stats.fail }}</span>
           </div>
         </div>
       </div>
@@ -335,6 +409,135 @@ const filteredMusics = computed(() => {
   )
 })
 
+// 按歌曲名稱分組
+const groupedMusics = computed(() => {
+  const map = new Map()
+  for (const music of filteredMusics.value) {
+    const key = (music.name || '').trim().toLowerCase()
+    if (!map.has(key)) {
+      map.set(key, { name: music.name || '未命名', items: [] })
+    }
+    map.get(key).items.push(music)
+  }
+  return Array.from(map.values())
+})
+
+// 每個 group 目前選中的版本 index
+const activeVersionMap = ref(new Map())
+
+function getActiveIndex(group) {
+  const key = (group.name || '').trim().toLowerCase()
+  return activeVersionMap.value.get(key) || 0
+}
+
+function getActiveItem(group) {
+  const idx = getActiveIndex(group)
+  return group.items[idx] || group.items[0]
+}
+
+function setActiveVersion(groupName, idx) {
+  const key = (groupName || '').trim().toLowerCase()
+  activeVersionMap.value.set(key, idx)
+  activeVersionMap.value = new Map(activeVersionMap.value) // trigger reactivity
+}
+
+function toggleGroupSelect(group) {
+  const allSelected = group.items.every(m => selectedIds.value.has(m.id))
+  if (allSelected) {
+    group.items.forEach(m => selectedIds.value.delete(m.id))
+  } else {
+    group.items.forEach(m => selectedIds.value.add(m.id))
+  }
+}
+
+// 匯入進度狀態
+const importProgress = ref({
+  active: false,
+  title: '',
+  step: '',
+  current: 0,
+  total: 0,
+  percent: 0,
+  itemName: '',
+  stats: null
+})
+
+function updateImportProgress(fields) {
+  Object.assign(importProgress.value, fields)
+  if (fields.current !== undefined && importProgress.value.total > 0) {
+    importProgress.value.percent = Math.round((fields.current / importProgress.value.total) * 100)
+  }
+}
+
+function resetImportProgress() {
+  importProgress.value = {
+    active: false, title: '', step: '', current: 0, total: 0, percent: 0, itemName: '', stats: null
+  }
+}
+
+// 音樂快取
+const musicCache = ref(new Map()) // id -> { blobUrl, size }
+const cachingMusicId = ref(null)
+const totalCacheSize = ref(0)
+
+const musicsWithFile = computed(() => musics.value.filter(m => m.file))
+const cachedCount = computed(() => musicCache.value.size)
+
+function getAudioSrc(music) {
+  const cached = musicCache.value.get(music.id)
+  if (cached) return cached.blobUrl
+  return music.file
+}
+
+async function cacheMusicItem(music) {
+  if (!music.file || musicCache.value.has(music.id)) return
+  cachingMusicId.value = music.id
+  try {
+    const response = await fetch(music.file)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    const blobUrl = URL.createObjectURL(blob)
+    musicCache.value.set(music.id, { blobUrl, size: blob.size, name: music.name })
+    totalCacheSize.value += blob.size
+    musicCache.value = new Map(musicCache.value)
+    console.log(`✅ 快取成功: ${music.name} (${(blob.size / 1024 / 1024).toFixed(1)} MB)`)
+  } catch (err) {
+    console.error(`快取失敗: ${music.name}`, err)
+    alert(`快取失敗: ${err.message}`)
+  } finally {
+    cachingMusicId.value = null
+  }
+}
+
+function uncacheMusic(musicId) {
+  const cached = musicCache.value.get(musicId)
+  if (cached) {
+    URL.revokeObjectURL(cached.blobUrl)
+    totalCacheSize.value -= cached.size
+    musicCache.value.delete(musicId)
+    musicCache.value = new Map(musicCache.value)
+  }
+}
+
+async function cacheAllMusics() {
+  const uncached = musicsWithFile.value.filter(m => !musicCache.value.has(m.id))
+  if (uncached.length === 0) { alert('所有音樂已快取'); return }
+  if (!confirm(`確定要快取 ${uncached.length} 首音樂？`)) return
+  for (const music of uncached) {
+    await cacheMusicItem(music)
+  }
+  alert(`快取完成！共 ${musicCache.value.size} 首 (${(totalCacheSize.value / 1024 / 1024).toFixed(1)} MB)`)
+}
+
+function clearAllMusicCache() {
+  if (!confirm('確定要清除所有音樂快取？')) return
+  for (const [, cached] of musicCache.value) {
+    URL.revokeObjectURL(cached.blobUrl)
+  }
+  musicCache.value = new Map()
+  totalCacheSize.value = 0
+}
+
 const pauseOthers = (event) => {
   document.querySelectorAll('.audio-player').forEach(audio => {
     if (audio !== event.target) audio.pause()
@@ -533,43 +736,221 @@ const exportToZIP = async () => {
   }
 }
 
+// CSV Parser
+const parseMusicCsv = (text) => {
+  const parseRow = (line) => {
+    const cells = []
+    let current = ''
+    let inQuotes = false
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i]
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++ }
+        else inQuotes = !inQuotes
+      } else if (char === ',' && !inQuotes) { cells.push(current.trim()); current = '' }
+      else current += char
+    }
+    cells.push(current.trim())
+    return cells
+  }
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim())
+  if (lines.length < 2) return []
+  const headers = parseRow(lines[0])
+  return lines.slice(1).map(line => {
+    const cells = parseRow(line)
+    const obj = {}
+    headers.forEach((h, i) => { obj[h] = cells[i] || '' })
+    return obj
+  })
+}
+
+// ZIP Import — 相容 supabase (music.json) 及 appwrite-music.zip (music.csv + music/ + lyrics/ + covers/)
 const handleFileImport = async (event) => {
   const file = event.target.files?.[0]
   if (!file) return
 
   try {
+    updateImportProgress({ active: true, title: '📦 正在解壓 ZIP...', step: '讀取檔案中', current: 0, total: 1, stats: null, itemName: file.name })
+
     // Dynamically import JSZip
     const JSZip = (await import('jszip')).default
-
     const zip = await JSZip.loadAsync(file)
 
-    // Look for JSON file
+    // 偵測格式：Appwrite (music.csv) vs Supabase (music.json)
+    const csvFile = zip.file('music.csv')
     const jsonFile = zip.file('music.json')
-    if (!jsonFile) {
-      alert('ZIP 檔案中找不到 music.json')
+
+    let records = []
+
+    if (csvFile) {
+      // ===== Appwrite 格式：music.csv + music/ + lyrics/ + covers/ =====
+      updateImportProgress({ step: '解析 CSV...', itemName: 'music.csv' })
+      const csvText = await csvFile.async('text')
+      const cleanText = csvText.replace(/^\uFEFF/, '')
+      const parsed = parseMusicCsv(cleanText)
+
+      if (parsed.length === 0) {
+        resetImportProgress()
+        alert('CSV 檔案無有效資料')
+        return
+      }
+
+      resetImportProgress()
+      const confirmMsg = `ℹ️ 偵測到 Appwrite music.zip 格式\n\n共 ${parsed.length} 筆音樂\n系統將自動上傳音樂檔案、封面至 Supabase Storage，並讀取歌詞\n\n確定匯入？`
+      if (!confirm(confirmMsg)) return
+
+      updateImportProgress({
+        active: true,
+        title: '🎵 匯入音樂中...',
+        step: '準備上傳',
+        current: 0,
+        total: parsed.length,
+        stats: { musicOk: 0, lyricsOk: 0, coverOk: 0, fail: 0 },
+        itemName: ''
+      })
+
+      const { uploadFile: uploadToStorage } = useStorage()
+      const stats = { musicOk: 0, lyricsOk: 0, coverOk: 0, fail: 0 }
+
+      for (let i = 0; i < parsed.length; i++) {
+        const row = parsed[i]
+        const mapped = {}
+        for (const [key, value] of Object.entries(row)) {
+          if (key.startsWith('$')) continue
+          mapped[key] = value
+        }
+
+        const itemLabel = mapped.name || `第 ${i + 1} 筆`
+        updateImportProgress({ current: i + 1, itemName: itemLabel })
+
+        // 上傳音樂檔案 (music/ 資料夾)
+        const musicPath = mapped.file
+        if (musicPath && musicPath.startsWith('music/')) {
+          updateImportProgress({ step: `🎵 上傳音樂 ${i + 1}/${parsed.length}` })
+          const zipEntry = zip.file(musicPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = musicPath.split('/').pop() || `music_${i}.mp3`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'mp3'
+              const mimeMap = { mp3: 'audio/mpeg', flac: 'audio/flac', wav: 'audio/wav', ogg: 'audio/ogg', m4a: 'audio/mp4', aac: 'audio/aac', wma: 'audio/x-ms-wma' }
+              const fileObj = new window.File([blob], fileName, { type: mimeMap[ext] || `audio/${ext}` })
+              const uploadResult = await uploadToStorage(fileObj, 'music')
+              if (uploadResult.success) {
+                mapped.file = uploadResult.url
+                if (!mapped.filetype) mapped.filetype = ext
+                stats.musicOk++
+              } else {
+                console.warn(`上傳音樂失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.file = ''
+                stats.fail++
+              }
+            } catch (err) {
+              console.warn(`上傳音樂失敗 (${mapped.name}):`, err)
+              mapped.file = ''
+              stats.fail++
+            }
+          } else {
+            mapped.file = ''
+          }
+        }
+
+        // 讀取歌詞檔案 (lyrics/ 資料夾)
+        const lyricsPath = mapped.lyrics
+        if (lyricsPath && lyricsPath.startsWith('lyrics/')) {
+          updateImportProgress({ step: `📝 讀取歌詞 ${i + 1}/${parsed.length}` })
+          const zipEntry = zip.file(lyricsPath)
+          if (zipEntry) {
+            try {
+              mapped.lyrics = await zipEntry.async('text')
+              stats.lyricsOk++
+            } catch (err) {
+              console.warn(`讀取歌詞失敗 (${mapped.name}):`, err)
+              mapped.lyrics = ''
+            }
+          } else {
+            mapped.lyrics = ''
+          }
+        }
+
+        // 上傳封面圖 (covers/ 資料夾)
+        const coverPath = mapped.cover
+        if (coverPath && coverPath.startsWith('covers/')) {
+          updateImportProgress({ step: `🖼️ 上傳封面 ${i + 1}/${parsed.length}` })
+          const zipEntry = zip.file(coverPath)
+          if (zipEntry) {
+            try {
+              const blob = await zipEntry.async('blob')
+              const fileName = coverPath.split('/').pop() || `cover_${i}.jpg`
+              const ext = fileName.split('.').pop()?.toLowerCase() || 'jpg'
+              const fileObj = new window.File([blob], fileName, { type: `image/${ext === 'jpg' ? 'jpeg' : ext}` })
+              const uploadResult = await uploadToStorage(fileObj, 'music-covers')
+              if (uploadResult.success) {
+                mapped.cover = uploadResult.url
+                stats.coverOk++
+              } else {
+                console.warn(`上傳封面失敗 (${mapped.name}):`, uploadResult.error)
+                mapped.cover = ''
+                stats.fail++
+              }
+            } catch (err) {
+              console.warn(`上傳封面失敗 (${mapped.name}):`, err)
+              mapped.cover = ''
+              stats.fail++
+            }
+          } else {
+            mapped.cover = ''
+          }
+        }
+
+        updateImportProgress({ stats: { ...stats } })
+        records.push(mapped)
+      }
+
+    } else if (jsonFile) {
+      // ===== Supabase 格式：music.json =====
+      updateImportProgress({ step: '解析 JSON...', itemName: 'music.json' })
+      const jsonText = await jsonFile.async('text')
+      const jsonData = JSON.parse(jsonText)
+
+      if (!Array.isArray(jsonData) || jsonData.length === 0) {
+        resetImportProgress()
+        alert('JSON 檔案格式錯誤或無資料')
+        return
+      }
+
+      records = jsonData.map(record => {
+        const { id, created_at, updated_at, ...rest } = record
+        return rest
+      })
+
+      resetImportProgress()
+      if (!confirm(`確定要匯入 ${records.length} 筆音樂記錄嗎？`)) return
+
+      updateImportProgress({ active: true, title: '📥 匯入中...', step: '寫入資料庫', current: 0, total: records.length })
+
+    } else {
+      resetImportProgress()
+      alert('ZIP 檔案中找不到 music.csv 或 music.json')
       return
     }
 
-    const jsonText = await jsonFile.async('text')
-    const records = JSON.parse(jsonText)
-
-    if (!Array.isArray(records) || records.length === 0) {
-      alert('JSON 檔案格式錯誤或無資料')
-      return
-    }
-
-    // Filter out system fields
-    const cleanRecords = records.map(record => {
-      const { id, created_at, updated_at, ...rest } = record
-      return rest
-    })
-
-    if (confirm(`確定要匯入 ${cleanRecords.length} 筆音樂記錄嗎？`)) {
-      await importMusics(cleanRecords)
-      await loadMusics()
-      alert('匯入成功！')
+    // 匯入記錄到資料庫
+    if (records.length > 0) {
+      updateImportProgress({ step: '💾 寫入資料庫...', current: importProgress.value.total, percent: 99 })
+      const result = await importMusics(records)
+      resetImportProgress()
+      if (result.success) {
+        await loadMusics()
+        alert(`✅ ${result.message}！共 ${result.count} 筆資料`)
+      } else {
+        alert('匯入失敗: ' + result.error)
+      }
+    } else {
+      resetImportProgress()
     }
   } catch (error) {
+    resetImportProgress()
     console.error('Error importing ZIP:', error)
     alert('匯入失敗：' + error.message)
   } finally {
@@ -684,6 +1065,126 @@ onMounted(() => {
   font-size: 1.1rem;
 }
 
+/* ── Cache Bar ── */
+.cache-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem 1rem;
+  margin-bottom: 1rem;
+  background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+  border: 1px solid #f9a8d4;
+  border-radius: 12px;
+  flex-wrap: wrap;
+}
+
+.cache-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #9d174d;
+}
+
+.cache-icon { font-size: 1.1rem; }
+
+.cache-size {
+  color: #be185d;
+  font-weight: 500;
+}
+
+.cache-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-cache-all {
+  padding: 0.35rem 0.85rem;
+  background: linear-gradient(135deg, #ec4899, #be185d);
+  color: white;
+  border: none;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cache-all:hover:not(:disabled) {
+  background: linear-gradient(135deg, #be185d, #9d174d);
+  transform: translateY(-1px);
+}
+
+.btn-cache-all:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-clear-cache {
+  padding: 0.35rem 0.85rem;
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-clear-cache:hover {
+  background: #fef2f2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.card-cache-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.25rem 0.5rem;
+  gap: 0.4rem;
+}
+
+.btn-cached,
+.btn-cache {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-cached {
+  background: #d1fae5;
+  color: #059669;
+}
+
+.btn-cached:hover {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.btn-cache {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.btn-cache:hover:not(:disabled) {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+.btn-cache:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .music-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -790,6 +1291,47 @@ onMounted(() => {
 .badge-language {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+}
+
+/* ── Language Chips ── */
+.lang-chips {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.lang-chip {
+  padding: 0.3rem 0.8rem;
+  border-radius: 16px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 2px solid #e0e0e0;
+  background: #f5f5f5;
+  color: #555;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.lang-chip:hover {
+  border-color: #b388ff;
+  background: #f3e5f5;
+  color: #7c4dff;
+}
+
+.lang-chip.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.version-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #aaa;
+  text-align: right;
+  font-style: italic;
 }
 
 .card-field {
@@ -1173,5 +1715,120 @@ onMounted(() => {
 .card-selected {
   border-color: #3498db !important;
   background: rgba(52, 152, 219, 0.05);
+}
+
+/* ── Import Progress Overlay ── */
+.import-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.2s ease;
+}
+
+.import-modal {
+  background: white;
+  border-radius: 20px;
+  padding: 2.5rem 2rem;
+  width: 90%;
+  max-width: 420px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.import-spinner {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 1.25rem;
+  border: 4px solid #e5e7eb;
+  border-top-color: #f093fb;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.import-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1f2937;
+  margin: 0 0 0.5rem;
+}
+
+.import-step {
+  font-size: 0.95rem;
+  color: #6b7280;
+  margin: 0 0 1.25rem;
+}
+
+.import-progress-bar {
+  width: 100%;
+  height: 10px;
+  background: #e5e7eb;
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+}
+
+.import-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f093fb 0%, #f5576c 100%);
+  border-radius: 99px;
+  transition: width 0.3s ease;
+}
+
+.import-percent {
+  font-size: 0.9rem;
+  color: #374151;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.import-item-name {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  margin: 0 0 1rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.import-stats {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.stat-tag {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.stat-ok {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.stat-fail {
+  background: #fee2e2;
+  color: #991b1b;
 }
 </style>
