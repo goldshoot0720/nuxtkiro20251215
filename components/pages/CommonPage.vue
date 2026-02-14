@@ -68,35 +68,76 @@
 
       <!-- 列表 Grid -->
       <div v-else class="common-grid">
-        <div v-for="account in filteredAccounts" :key="account.id" class="common-card">
-          <div class="card-header">
-            <h3 class="card-title">{{ getFriendlyName(account.name) }}</h3>
-            <span v-if="account.name && account.name.includes('@')" class="card-email">{{ account.name }}</span>
-            <div class="card-actions">
-              <button class="btn-icon" @click="editAccount(account)" title="編輯">✏️</button>
-              <button class="btn-icon delete" @click="confirmDelete(account)" title="刪除">🗑️</button>
+        <div v-for="account in filteredAccounts" :key="account.id" class="common-card" :class="{ 'card-editing': editingId === account.id }">
+          <!-- 行內編輯模式 -->
+          <template v-if="editingId === account.id">
+            <div class="card-header">
+              <input v-model="editForm.name" type="text" class="inline-input inline-name" placeholder="example@example.com">
+              <div class="card-actions">
+                <button class="btn-icon save" @click="saveInlineEdit" title="儲存">💾</button>
+                <button class="btn-icon" @click="cancelInlineEdit" title="取消">✕</button>
+              </div>
             </div>
-          </div>
+            <div class="card-content inline-edit-content">
+              <div class="inline-items-list">
+                <div v-for="i in 37" :key="i" class="inline-item-row" v-show="isSlotVisible(i)">
+                  <span class="inline-item-num">{{ i }}</span>
+                  <input 
+                    v-model="editForm[`site${padIndex(i)}`]" 
+                    type="text" 
+                    class="inline-input inline-site" 
+                    :placeholder="`網站名稱`"
+                  >
+                  <input 
+                    v-model="editForm[`note${padIndex(i)}`]" 
+                    type="text" 
+                    class="inline-input inline-note" 
+                    :placeholder="`備註`"
+                  >
+                </div>
+              </div>
+              <button class="btn-show-all-slots" @click="showAllSlots = !showAllSlots">
+                {{ showAllSlots ? '收合空白欄位' : `顯示全部 37 個欄位` }}
+              </button>
+            </div>
+          </template>
+
+          <!-- 顯示模式 -->
+          <template v-else>
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">{{ getFriendlyName(account.name) }}</h3>
+                <span v-if="account.name && account.name.includes('@')" class="card-email">{{ account.name }}</span>
+              </div>
+              <div class="card-actions">
+                <button v-if="batchMode" class="card-checkbox" @click="toggleSelect(account.id)">
+                  <input type="checkbox" :checked="selectedIds.has(account.id)" @click.stop="toggleSelect(account.id)">
+                </button>
+                <button class="btn-icon" @click="startInlineEdit(account)" title="行內編輯">✏️</button>
+                <button class="btn-icon delete" @click="confirmDelete(account)" title="刪除">🗑️</button>
+              </div>
+            </div>
           
-          <div class="card-content">
-            <div class="preview-list">
-              <!-- 顯示前 5 個非空的項目作為預覽 -->
-              <div v-for="(item, index) in getPreviewItems(account)" :key="index" class="preview-item">
-                <span class="site-name">{{ item.site }}</span>
-                <span class="note-text" v-if="item.note">{{ item.note }}</span>
+            <div class="card-content">
+              <div class="preview-list">
+                <!-- 顯示前 5 個非空的項目作為預覽 -->
+                <div v-for="(item, index) in getPreviewItems(account)" :key="index" class="preview-item">
+                  <span class="site-name">{{ item.site }}</span>
+                  <span class="note-text" v-if="item.note">{{ item.note }}</span>
+                </div>
+                <div v-if="getNonEmptyCount(account) > 5" class="more-items">
+                  ...還有 {{ getNonEmptyCount(account) - 5 }} 個項目
+                </div>
+                <div v-if="getNonEmptyCount(account) === 0" class="no-items">
+                  (無內容)
+                </div>
               </div>
-              <div v-if="getNonEmptyCount(account) > 5" class="more-items">
-                ...還有 {{ getNonEmptyCount(account) - 5 }} 個項目
-              </div>
-              <div v-if="getNonEmptyCount(account) === 0" class="no-items">
-                (無內容)
-              </div>
+              
+              <button class="btn-view-all" @click="editAccount(account)">
+                查看全部詳細
+              </button>
             </div>
-            
-            <button class="btn-view-all" @click="editAccount(account)">
-              查看全部詳細
-            </button>
-          </div>
+          </template>
         </div>
       </div>
 
@@ -187,6 +228,11 @@ const errorMessage = ref('')
 const batchMode = ref(false)
 const selectedIds = ref(new Set())
 
+// 行內編輯
+const editingId = ref(null)
+const editForm = reactive({})
+const showAllSlots = ref(false)
+
 const enterBatchMode = () => { batchMode.value = true }
 const exitBatchMode = () => { batchMode.value = false; selectedIds.value = new Set() }
 
@@ -222,6 +268,74 @@ const deleteSelected = async () => {
   selectedIds.value = new Set()
   batchMode.value = false
   alert(`已刪除 ${ok} 筆`)
+}
+
+// 行內編輯功能
+const startInlineEdit = (account) => {
+  const data = { ...account }
+  // 確保所有欄位存在
+  for (let i = 1; i <= 37; i++) {
+    const key = padIndex(i)
+    if (data[`site${key}`] === undefined) data[`site${key}`] = ''
+    if (data[`note${key}`] === undefined) data[`note${key}`] = ''
+  }
+  if (data.photohash === undefined) data.photohash = ''
+  Object.assign(editForm, data)
+  editingId.value = account.id
+  showAllSlots.value = false
+}
+
+const cancelInlineEdit = () => {
+  editingId.value = null
+  showAllSlots.value = false
+}
+
+const saveInlineEdit = async () => {
+  if (!editForm.name) {
+    alert('請輸入項目名稱')
+    return
+  }
+  // 驗證 email 格式
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailPattern.test(editForm.name)) {
+    alert('項目名稱格式錯誤，請使用 email 格式')
+    return
+  }
+  const payload = { ...editForm }
+  // 清理空值
+  for (let i = 1; i <= 37; i++) {
+    const key = padIndex(i)
+    if (!payload[`site${key}`]) payload[`site${key}`] = null
+    if (!payload[`note${key}`]) payload[`note${key}`] = null
+  }
+  if (!payload.photohash) payload.photohash = null
+
+  const result = await updateAccount(editForm.id, payload)
+  if (result.success) {
+    editingId.value = null
+    showAllSlots.value = false
+  } else {
+    alert('儲存失敗: ' + result.error)
+  }
+}
+
+// 判斷欄位是否顯示（非空或展開全部）
+const isSlotVisible = (i) => {
+  if (showAllSlots.value) return true
+  const key = padIndex(i)
+  return !!(editForm[`site${key}`] || editForm[`note${key}`])
+    || i <= Math.max(getNonEmptyEditCount() + 3, 5) // 至少顯示到最後一個非空+3，或至少5
+}
+
+const getNonEmptyEditCount = () => {
+  let lastNonEmpty = 0
+  for (let i = 1; i <= 37; i++) {
+    const key = padIndex(i)
+    if (editForm[`site${key}`] || editForm[`note${key}`]) {
+      lastNonEmpty = i
+    }
+  }
+  return lastNonEmpty
 }
 
 // 表單資料
@@ -712,6 +826,7 @@ useHead({
 .card-actions {
   display: flex;
   gap: 0.5rem;
+  flex-shrink: 0;
 }
 
 .card-content {
@@ -719,6 +834,90 @@ useHead({
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+/* 行內編輯樣式 */
+.card-editing {
+  border-top-color: #f59e0b;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #8ec5fc;
+  box-shadow: 0 0 0 2px rgba(142, 197, 252, 0.2);
+}
+
+.inline-name {
+  flex: 1;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.inline-edit-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.inline-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.inline-item-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.inline-item-num {
+  font-size: 0.75rem;
+  color: #999;
+  width: 1.5rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.inline-site {
+  flex: 2;
+  min-width: 0;
+}
+
+.inline-note {
+  flex: 3;
+  min-width: 0;
+}
+
+.btn-show-all-slots {
+  margin-top: 0.75rem;
+  padding: 0.4rem;
+  background: #f8f9fa;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+  color: #888;
+  cursor: pointer;
+  font-size: 0.8rem;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.btn-show-all-slots:hover {
+  background: #eef2f7;
+  color: #555;
+}
+
+.btn-icon.save:hover {
+  background: #ecfdf5;
 }
 
 .preview-list {
