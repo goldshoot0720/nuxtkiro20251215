@@ -76,8 +76,8 @@
             </div>
 
             <div class="video-info">
-              <div v-if="video.file" class="info-item">
-                <strong>檔案:</strong> {{ video.file }}
+              <div v-if="video.file" class="card-video-wrapper">
+                <video :src="video.file" controls preload="metadata" class="card-video"></video>
               </div>
               <div v-if="video.filetype" class="info-item">
                 <strong>類型:</strong> {{ video.filetype }}
@@ -776,6 +776,19 @@ onMounted(() => {
   background: #f8fafc;
   border-radius: 8px;
   border-left: 3px solid #667eea;
+}
+
+.card-video-wrapper {
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+
+.card-video {
+  width: 100%;
+  max-height: 220px;
+  display: block;
+  border-radius: 8px;
 }
 
 .video-info {
