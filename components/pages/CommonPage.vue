@@ -70,7 +70,8 @@
       <div v-else class="common-grid">
         <div v-for="account in filteredAccounts" :key="account.id" class="common-card">
           <div class="card-header">
-            <h3 class="card-title">{{ account.name || '未命名項目' }}</h3>
+            <h3 class="card-title">{{ getFriendlyName(account.name) }}</h3>
+            <span v-if="account.name && account.name.includes('@')" class="card-email">{{ account.name }}</span>
             <div class="card-actions">
               <button class="btn-icon" @click="editAccount(account)" title="編輯">✏️</button>
               <button class="btn-icon delete" @click="confirmDelete(account)" title="刪除">🗑️</button>
@@ -270,6 +271,15 @@ const getNonEmptyCount = (account) => {
     }
   }
   return count
+}
+
+// 取得使用者友善的顯示名稱（@ 前面的部分）
+const getFriendlyName = (name) => {
+  if (!name) return '未命名項目'
+  if (name.includes('@')) {
+    return name.split('@')[0]
+  }
+  return name
 }
 
 // 篩選功能
@@ -679,7 +689,9 @@ useHead({
   border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .card-title {
@@ -687,6 +699,14 @@ useHead({
   font-size: 1.25rem;
   color: #333;
   font-weight: 700;
+}
+
+.card-email {
+  font-size: 0.8rem;
+  color: #999;
+  display: block;
+  margin-top: 0.2rem;
+  word-break: break-all;
 }
 
 .card-actions {
