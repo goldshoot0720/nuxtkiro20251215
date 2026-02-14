@@ -112,7 +112,9 @@ export function getSupabaseBucket() {
   }
   const acc = accounts.value.find(a => a.id === activeAccountId.value)
   if (acc?.bucket) return acc.bucket
-  return null // 讓調用者 fallback 到 .env
+  // 如果有自訂帳號但沒設 bucket，用 'uploads' 而非 .env（.env 可能屬於不同專案）
+  if (acc) return 'uploads'
+  return null // 沒有自訂帳號時，讓調用者 fallback 到 .env
 }
 
 export function useSettings() {
