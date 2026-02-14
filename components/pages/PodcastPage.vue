@@ -78,35 +78,58 @@
                 @change="toggleSelect(podcast.id)"
                 class="card-checkbox"
               />
-              <h3 class="card-title">{{ podcast.name || '未命名' }}</h3>
+              <h3 v-if="inlineEditId !== podcast.id" class="card-title">{{ podcast.name || '未命名' }}</h3>
+              <input v-else v-model="inlineForm.name" class="inline-input inline-title-input" placeholder="名稱" />
             </div>
-            <span v-if="podcast.category" class="category-badge">
-              {{ podcast.category }}
-            </span>
+            <div class="card-header-right">
+              <span v-if="podcast.category && inlineEditId !== podcast.id" class="category-badge">
+                {{ podcast.category }}
+              </span>
+              <button v-if="inlineEditId !== podcast.id" @click="startInlineEdit(podcast)" class="btn-icon" title="編輯">✎</button>
+              <button v-if="inlineEditId !== podcast.id" @click="confirmDelete(podcast)" class="btn-icon btn-icon-delete" title="刪除">✕</button>
+            </div>
           </div>
 
-          <div class="card-body">
+          <!-- 行內編輯模式 -->
+          <div v-if="inlineEditId === podcast.id" class="inline-edit-form">
+            <div class="inline-row">
+              <label>分類</label>
+              <input v-model="inlineForm.category" class="inline-input" placeholder="分類" />
+            </div>
+            <div class="inline-row">
+              <label>備註</label>
+              <textarea v-model="inlineForm.note" class="inline-textarea" rows="2" placeholder="備註"></textarea>
+            </div>
+            <div class="inline-row">
+              <label>音檔 URL</label>
+              <input v-model="inlineForm.file" class="inline-input" placeholder="音檔路徑" />
+            </div>
+            <div class="inline-row">
+              <label>封面 URL</label>
+              <input v-model="inlineForm.cover" class="inline-input" placeholder="封面 URL" />
+            </div>
+            <div class="inline-row">
+              <label>參考</label>
+              <input v-model="inlineForm.ref" class="inline-input" placeholder="參考連結" />
+            </div>
+            <div class="inline-actions">
+              <button @click="saveInlineEdit" class="btn-inline-save">💾 儲存</button>
+              <button @click="cancelInlineEdit" class="btn-inline-cancel">取消</button>
+            </div>
+          </div>
+
+          <!-- 正常顯示模式 -->
+          <div v-else class="card-body">
             <div v-if="podcast.cover" class="cover-preview">
               <img :src="podcast.cover" :alt="podcast.name" />
             </div>
 
-            <div v-if="podcast.note" class="note-preview">
-              {{ truncateText(podcast.note, 100) }}
+            <div v-if="podcast.file" class="card-audio">
+              <audio controls :src="podcast.file" class="audio-player" @play="pauseOthers($event)"></audio>
             </div>
 
-            <div class="file-info">
-              <div v-if="podcast.file" class="info-item">
-                <span class="label">檔案:</span>
-                <span class="value">{{ getFileName(podcast.file) }}</span>
-              </div>
-              <div v-if="podcast.filetype" class="info-item">
-                <span class="label">格式:</span>
-                <span class="value">{{ podcast.filetype }}</span>
-              </div>
-              <div v-if="podcast.hash" class="info-item">
-                <span class="label">Hash:</span>
-                <span class="value hash">{{ truncateText(podcast.hash, 12) }}</span>
-              </div>
+            <div v-if="podcast.note" class="note-preview">
+              {{ truncateText(podcast.note, 100) }}
             </div>
 
             <div v-if="podcast.ref" class="ref-link">
@@ -114,15 +137,6 @@
                 參考連結
               </a>
             </div>
-          </div>
-
-          <div class="card-actions">
-            <button @click="openEditModal(podcast)" class="btn btn-edit">
-              編輯
-            </button>
-            <button @click="confirmDelete(podcast)" class="btn btn-delete">
-              刪除
-            </button>
           </div>
         </div>
       </div>
@@ -348,6 +362,48 @@ const formData = ref({
   hash: '',
   cover: ''
 })
+
+// Inline editing state
+const inlineEditId = ref(null)
+const inlineForm = ref({})
+
+const startInlineEdit = (podcast) => {
+  inlineEditId.value = podcast.id
+  inlineForm.value = {
+    name: podcast.name || '',
+    file: podcast.file || '',
+    filetype: podcast.filetype || '',
+    note: podcast.note || '',
+    ref: podcast.ref || '',
+    category: podcast.category || '',
+    hash: podcast.hash || '',
+    cover: podcast.cover || ''
+  }
+}
+
+const saveInlineEdit = async () => {
+  if (!inlineEditId.value) return
+  try {
+    await updatePodcast(inlineEditId.value, inlineForm.value)
+    inlineEditId.value = null
+    inlineForm.value = {}
+  } catch (error) {
+    console.error('Inline edit error:', error)
+    alert('儲存失敗: ' + error.message)
+  }
+}
+
+const cancelInlineEdit = () => {
+  inlineEditId.value = null
+  inlineForm.value = {}
+}
+
+// 播放時暫停其他音訊
+const pauseOthers = (event) => {
+  document.querySelectorAll('.audio-player').forEach(audio => {
+    if (audio !== event.target) audio.pause()
+  })
+}
 
 // Computed
 const filteredPodcasts = computed(() => {
@@ -1001,6 +1057,150 @@ onMounted(() => {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 1rem;
   font-size: 0.85rem;
+}
+
+.card-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.2rem;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.btn-icon:hover {
+  color: white;
+  transform: scale(1.2);
+}
+
+.btn-icon-delete:hover {
+  color: #fca5a5;
+}
+
+/* Audio player */
+.card-audio {
+  margin-bottom: 0.75rem;
+}
+
+.audio-player {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+}
+
+/* Inline editing */
+.inline-edit-form {
+  padding: 1rem 1.25rem;
+}
+
+.inline-row {
+  margin-bottom: 0.6rem;
+}
+
+.inline-row label {
+  display: block;
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-bottom: 0.15rem;
+  font-weight: 500;
+}
+
+.inline-input {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.inline-input:focus {
+  outline: none;
+  border-color: #11998e;
+  box-shadow: 0 0 0 2px rgba(17, 153, 142, 0.1);
+}
+
+.inline-title-input {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.inline-title-input:focus {
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1);
+}
+
+.inline-title-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.inline-textarea {
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  resize: vertical;
+  font-family: inherit;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.inline-textarea:focus {
+  outline: none;
+  border-color: #11998e;
+  box-shadow: 0 0 0 2px rgba(17, 153, 142, 0.1);
+}
+
+.inline-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.btn-inline-save {
+  padding: 0.4rem 1rem;
+  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-inline-save:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(17, 153, 142, 0.3);
+}
+
+.btn-inline-cancel {
+  padding: 0.4rem 1rem;
+  background: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-inline-cancel:hover {
+  background: #e5e7eb;
 }
 
 .card-body {

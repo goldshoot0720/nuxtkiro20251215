@@ -141,9 +141,7 @@
             <p v-if="getActiveItem(group).ref" class="card-field">
               <strong>參考:</strong> {{ getActiveItem(group).ref }}
             </p>
-            <p v-if="getActiveItem(group).hash" class="card-field">
-              <strong>Hash:</strong> {{ getActiveItem(group).hash }}
-            </p>
+
             <!-- 多版本提示 -->
             <p v-if="group.items.length > 1" class="version-hint">
               共 {{ group.items.length }} 個語言版本
